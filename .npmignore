@@ -2,6 +2,7 @@ src/
 dev.ts
 cordis.dev.yml
 tsconfig.json
+tsconfig.client.json
 .env
 .env.example
 .dsh-sessions/

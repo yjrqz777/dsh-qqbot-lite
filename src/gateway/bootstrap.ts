@@ -40,13 +40,36 @@ function dispatchInteraction(event: InteractionEvent, manager: SessionManager): 
   return false;
 }
 
+/**
+ * 网关连接状态的回报回调（设置页顶部的状态圆点用）。
+ * 不传则完全不回报；回调抛错也不影响网关。
+ */
+export type GatewayStateReporter = (
+  state: 'starting' | 'connected' | 'error' | 'stopped',
+  error?: string,
+) => void;
+
 export async function bootstrapGateway(
   ctx: Context,
   agents: DshAgentRegistry,
   config: ImQQBotConfig,
   logger: Logger,
+  report?: GatewayStateReporter,
+  /** 功能级错误上报（预设挂载失败、会话创建失败），供设置页状态区展示。 */
+  onError?: (message: string) => void,
 ): Promise<void> {
-  const manager = new SessionManager(ctx, agents, config, logger);
+  const manager = new SessionManager(ctx, agents, config, logger, onError);
+
+  /** 回报状态；回调异常一律吞掉，状态点的问题不许影响网关。 */
+  const notify = (state: 'starting' | 'connected' | 'error' | 'stopped', error?: string): void => {
+    try {
+      report?.(state, error);
+    } catch {
+      // 状态回报是尽力而为，失败无副作用。
+    }
+  };
+
+  notify('starting');
 
   // ── 初始化 QQ Bot SDK ──
   const userAgent = buildUserAgent();
@@ -125,11 +148,14 @@ export async function bootstrapGateway(
   });
 
   bot.on('error', (err: unknown) => {
-    logger.error(`bot error: ${err instanceof Error ? err.message : String(err)}`);
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error(`bot error: ${message}`);
+    notify('error', message);
   });
 
   bot.on('ready', () => {
     console.log(`[im-qqbot] Bot ready! appId=${config.appId}`);
+    notify('connected');
   });
 
   // ── 富媒体过期清理 ──
@@ -157,11 +183,14 @@ export async function bootstrapGateway(
     .effect(() => {
       logger.info(`Starting bot (appId=${config.appId})`);
       bot.start().catch((err: unknown) => {
-        logger.error(`Bot start failed: ${err instanceof Error ? err.message : String(err)}`);
+        const message = err instanceof Error ? err.message : String(err);
+        logger.error(`Bot start failed: ${message}`);
+        notify('error', message);
       });
 
       return async () => {
         logger.info('Shutting down');
+        notify('stopped');
         await manager.disposeAll();
         bot.stop();
       };

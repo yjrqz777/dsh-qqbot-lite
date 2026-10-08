@@ -70,10 +70,19 @@ class OutboundRouter {
   /** 事件分发入口 */
   public route(session: SessionLike, raw: RawSessionEvent): void {
     const event = parseEvent(raw);
-    if (event === undefined) return;
+    if (event === undefined) {
+      this.logger.debug(`im-qqbot: 收到无法解析的 session 事件 ${JSON.stringify(raw).slice(0, 200)}`);
+      return;
+    }
 
     const record = this.manager.findBySessionId(session.header.id);
-    if (record === undefined) return;
+    if (record === undefined) {
+      this.logger.debug(`im-qqbot: 事件 ${event.type} 没有对应会话键（sessionId=${session.header.id}）`);
+      return;
+    }
+
+    // 事件序列全量落盘：定位「turn 秒退、没有任何 assistant 输出」这类问题全靠它。
+    this.logger.debug(`im-qqbot: event ${event.type} sessionId=${session.header.id}`);
 
     switch (event.type) {
       case 'assistant/chunk':
@@ -173,7 +182,8 @@ class OutboundRouter {
       void this.send(record, `⚠️ 本轮异常结束\n\`${failure.code}\`: ${failure.message}`, 'sendTurnEndError');
     }
 
-    this.logger.debug(`im-qqbot: turn/end sessionId=${sessionId}`);
+    // 结束原因必须留痕：静默错误码不会给用户发消息，但正是「什么都不回」的现场。
+    this.logger.info(`im-qqbot: turn/end sessionId=${sessionId} reason=${JSON.stringify(event.reason ?? null).slice(0, 500)}${failure === undefined ? '' : ` code=${failure.code} silent=${SILENT_TURN_ERROR_CODES.has(failure.code)}`} 已发文本=${buffer?.text.length ?? 0} 字`);
   }
 
   /** 统一发送：切分 + 逐 chunk 发送 + 错误记录 */

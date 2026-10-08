@@ -84,6 +84,8 @@ export class SessionManager {
     agents: DshAgentRegistry,
     config: ImQQBotConfig,
     logger: Logger,
+    /** 功能级错误上报（预设挂载失败、会话创建失败），用于设置页状态区展示。 */
+    private readonly onError?: (message: string) => void,
   ) {
     this.ctx = ctx;
     this.agents = agents;
@@ -412,6 +414,15 @@ export class SessionManager {
     return lines.join('\n');
   }
 
+  /** 上报一条功能级错误（尽力而为，上报失败无副作用）。 */
+  reportError(message: string): void {
+    try {
+      this.onError?.(message);
+    } catch {
+      // 上报是最佳努力，失败不影响会话。
+    }
+  }
+
   private countMessages(record: SessionRecord | undefined): number {
     const events = record?.agent.session.events;
     if (!events) return 0;
@@ -444,13 +455,31 @@ export class SessionManager {
     const presets = this.getPresetsService();
     if (!presets) return {};
 
+    // 没指定 preset 时**不要**走预设机制：`presets.resolve(undefined)` 会退回
+    // 部署默认预设（本机是 dadu），而它带着挂载失败的 `tool-fs-search` 行——
+    // 挂载抛错被降级吞掉后，agent 半初始化，turn 会在几十毫秒内结束、什么都不回。
+    // 宿主组合本来就够用，人设由插件自己的 prompt 字段（directPrompt/groupPrompt）注入。
+    if (presetId === undefined || presetId === '') {
+      this.logger.info('im-qqbot: 未指定 preset，使用宿主组合（不挂载任何预设）');
+      return {};
+    }
+
     try {
       const resolved = await presets.resolve(presetId);
       const resolvedId = resolved.id;
       return {
         agentPreset: resolvedId,
         setup: async (agentCtx: Context) => {
-          await presets.mount(agentCtx, resolvedId);
+          // 挂载失败必须降级而不是抛出：预设里有一行起不来（缺包、版本不匹配、
+          // 审计不通过）时，抛错会让整个会话创建失败，QQ 用户只会收到「处理异常」。
+          // 这里退回宿主组合：会话照常可用，问题记进状态接口供设置页显示。
+          try {
+            await presets.mount(agentCtx, resolvedId);
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            this.logger.warn(`im-qqbot: preset ${resolvedId} 挂载失败，改用宿主组合: ${message}`);
+            this.reportError(`预设 ${resolvedId} 挂载失败：${message}`);
+          }
         },
       };
     } catch (err) {
@@ -490,9 +519,17 @@ export class SessionManager {
       agent = live;
       this.logger.info(`reusing live agent: key=${key}`);
     } else {
-      // preset 只解析一次：resume/create 共用同一组合，避免重复 resolve/mount 目录。
-      // 优先 session 当初的 preset（started 锁定语义），无则用当前 effective preset。
-      const presetId = (await this.resolvePersistedPreset(sessionId)) ?? this.getEffectivePresetByKey(key);
+      // 只用配置里显式写的 preset；**不再采用会话持久化的 preset**。
+      //
+      // 理由：预设里只要有一行在本安装里挂载失败（例如 dadu / suqing 都带的
+      // `tool-fs-search` 行），mount 就会抛错；抛错被降级吞掉后 agent 会以
+      // 半初始化状态建出来——turn 在几十毫秒内就结束、什么都不回。
+      // 会话持久化的 preset 用户看不见也改不掉，留着就是这种定时炸弹。
+      const persistedPreset = await this.resolvePersistedPreset(sessionId);
+      const presetId = this.getEffectivePresetByKey(key);
+      if (persistedPreset !== undefined && persistedPreset !== presetId) {
+        this.logger.warn(`im-qqbot: 忽略会话持久化的 preset=${persistedPreset}（改用 preset=${presetId ?? '(宿主组合)'}），避免挂载失败的预设让 agent 半初始化`);
+      }
       const composed = await this.composePreset(presetId);
       agentPreset = composed.agentPreset;
       try {
@@ -506,18 +543,37 @@ export class SessionManager {
         handle = resumed;
         this.logger.info(`resumed session: key=${key} preset=${agentPreset ?? 'none'} route=${resumeRoute ? `${resumeRoute.provider}/${resumeRoute.model}` : 'session-own'}`);
       } catch {
-        const created = await this.agents.create({
-          sessionId,
-          meta: {
-            cwd: this.config.cwd || process.cwd(),
-            ...(agentPreset ? { agentPreset } : {}),
-          },
-          ...(route ? { agentOptions: route } : {}),
-          ...(composed.setup ? { setup: composed.setup } : {}),
-        });
-        agent = created.agent;
-        handle = created;
-        this.logger.info(`created new session: key=${key} preset=${agentPreset ?? 'none'}`);
+        try {
+          const created = await this.agents.create({
+            sessionId,
+            meta: {
+              cwd: this.config.cwd || process.cwd(),
+              ...(agentPreset ? { agentPreset } : {}),
+            },
+            ...(route ? { agentOptions: route } : {}),
+            ...(composed.setup ? { setup: composed.setup } : {}),
+          });
+          agent = created.agent;
+          handle = created;
+          this.logger.info(`created new session: key=${key} preset=${agentPreset ?? 'none'}`);
+        } catch (error) {
+          // 预设组合有问题（某一行起不来、版本不匹配）时，绝不能挡住会话：
+          // 去掉预设再建一次，退回宿主组合。半初始化状态比没有预设更糟——
+          // 那样 agent 建出来了但 turn 跑不起来，QQ 端会既没回复也没报错。
+          if (composed.setup === undefined) throw error;
+          const message = error instanceof Error ? error.message : String(error);
+          this.logger.warn(`im-qqbot: 带预设创建会话失败，改用宿主组合重试: ${message}`);
+          this.reportError(`预设 ${agentPreset ?? presetId ?? '(default)'} 不可用，已退回宿主组合：${message}`);
+          const fallback = await this.agents.create({
+            sessionId,
+            meta: { cwd: this.config.cwd || process.cwd() },
+            ...(route ? { agentOptions: route } : {}),
+          });
+          agent = fallback.agent;
+          handle = fallback;
+          agentPreset = undefined;
+          this.logger.info(`created new session (host composition): key=${key}`);
+        }
       }
     }
 

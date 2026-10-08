@@ -116,7 +116,10 @@ export async function handleInbound(
   try {
     record = await manager.getOrCreate(scope, peerId, msg.senderId, replyTarget);
   } catch (err) {
-    logger.error(`ERROR creating session: ${err instanceof Error ? err.message : String(err)}`);
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error(`ERROR creating session: ${message}`);
+    // 把真实原因送进设置页状态区：宿主控制台用户看不到，这条要看得见。
+    manager.reportError(`会话创建失败：${message}`);
     // 兜底回复：会话创建失败时告知用户，避免静默无响应
     try {
       await bot.sendMarkdown(replyTarget, '⚠️ 处理消息时出现异常，请稍后重试。');

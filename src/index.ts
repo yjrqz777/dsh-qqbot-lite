@@ -3,13 +3,24 @@
  *
  * Cordis 插件入口。将 QQ 消息平台作为 dsh 的前端协议驱动。
  * 网关组装（中间件编排 + 事件 + 出站 + 生命周期）见 src/gateway/。
+ *
+ * 配置是 volatile 字段（见 src/config.ts）：设置页的改动不会重挂本插件，
+ * 只发 `loader/volatile-update`，网关在这里按需销毁重建。
+ *
+ * ── 启动隔离（硬约束）──
+ * 本插件无论怎么坏，都不允许影响 harness 启动：
+ * 1. `apply()` 全程 try/catch，抛错只记录，fiber 绝不进入 FAILED。
+ * 2. 不 await 任何交互式流程：终端扫码只在真连着 TTY 时后台发起，永不阻塞启动。
+ * 3. 依赖 QQ SDK / connector 的模块走动态 import，缺包或损坏只让本插件降级。
+ * 4. 凭据缺失或明显非法时不构造 SDK 实例，停在本插件内部。
  */
+import { mkdirSync } from 'node:fs';
 import type { Context } from '@deepseek-ai/cordis';
-import { ConfigSchema, type ImQQBotConfig } from './config.ts';
-import { bootstrapGateway } from './gateway/index.ts';
+import { ConfigSchema, resolveConfigValues, type ImQQBotConfig, type ImQQBotFormConfig } from './config.ts';
+import { LOG_PATH, teeLogger } from './log.ts';
 import type { DshAgentRegistry } from './session/index.ts';
 import { getProfileDir, resolveEnv } from './shared/index.ts';
-import { runQrSetup, persistCredentialsToProfile } from './setup.ts';
+import { QqbotStatus } from './status.ts';
 import type { Logger } from './types.ts';
 
 // ── Cordis 插件元数据 ──
@@ -17,46 +28,234 @@ export const name = 'im-qqbot';
 export const inject = ['agents'];
 export const Config = ConfigSchema;
 
-export type { ImQQBotConfig } from './config.ts';
+export type { ImQQBotConfig, ImQQBotFormConfig } from './config.ts';
+
+/** 浏览器半轮询连接状态用的路由（与 client.tsx 里的常量一致）。 */
+const STATUS_PATH = '/api/dsh-qqbot/status';
+
+/** 取错误文本（unknown → string）。 */
+function reason(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 // ── 插件主体 ──
-export async function apply(ctx: Context, config: ImQQBotConfig): Promise<void> {
-  const agents = (ctx as unknown as Record<string, unknown>).agents as DshAgentRegistry;
-  const logger: Logger = ((ctx as unknown as Record<string, unknown>).logger as Logger) ?? console;
+/**
+ * 插件入口。任何异常都在这里被吞掉并记录：插件失败最多等于
+ * 「QQ 机器人不可用」，不会让 harness 起不来。
+ */
+export async function apply(ctx: Context, config: ImQQBotFormConfig): Promise<void> {
+  const base = ((ctx as unknown as Record<string, unknown>).logger as Logger) ?? console;
+  // 宿主控制台用户看不到，所有日志同时落到 ~/.dsh-qqbot/plugin.log。
+  const logger: Logger = teeLogger(base);
 
   console.log('[im-qqbot] apply() called');
+  logger.info(`[im-qqbot] apply() 开始（日志文件：${LOG_PATH}）`);
 
-  let appId = resolveEnv(config.appId, 'QQBOT_APPID');
-  let appSecret = resolveEnv(config.appSecret, 'QQBOT_SECRET');
+  try {
+    await bootstrap(ctx, config, logger);
+  } catch (error) {
+    logger.error(`[im-qqbot] 初始化失败，插件已停用（不影响 harness）: ${reason(error)}`);
+  }
+}
 
-  // ── 凭据缺失时唤起扫码绑定 ──
-  if (!appId || !appSecret) {
-    logger.info('凭据未配置，尝试扫码绑定...');
-    const credentials = await runQrSetup();
+/** 插件初始化：所有可能失败的步骤都各自隔离。 */
+async function bootstrap(ctx: Context, config: ImQQBotFormConfig, logger: Logger): Promise<void> {
+  const agents = (ctx as unknown as Record<string, unknown>).agents as DshAgentRegistry;
 
-    if (!credentials) {
-      logger.error('无法获取 QQ Bot 凭据，插件未启动');
-      return;
-    }
+  /** 进程内连接状态，供设置页顶部的状态圆点读取。 */
+  const status = new QqbotStatus();
 
-    // 写入环境变量（供热更新后的下次 apply 或本次直接启动读取）
-    process.env.QQBOT_APPID = credentials.appId;
-    process.env.QQBOT_SECRET = credentials.appSecret;
-    appId = credentials.appId;
-    appSecret = credentials.appSecret;
-
-    // 持久化到 profile：成功则等待热更新重载，失败则用 env 凭据直接启动
-    const persisted = persistCredentialsToProfile(credentials, getProfileDir() ?? undefined, logger);
-    if (persisted) {
-      // 写入 cordis.patch.yml 会触发 dsh 热更新，自动重新加载本插件。
-      // 直接返回，避免与热更新产生竞态。
-      logger.info('配置已保存，等待热更新重新加载...');
-      return;
-    }
-    logger.warn('凭据未能持久化，本次进程将使用环境变量凭据启动（重启后需重新绑定）');
+  // 连接状态查询路由：浏览器半轮询它画状态点。
+  // `connection` 只存在于 GUI 组合；缺失或注册失败都只是状态点不可用（灰点），
+  // 不影响插件本身运行。
+  try {
+    ctx.inject(['connection'], (connectionCtx) => {
+      const connection = (connectionCtx as unknown as Record<string, unknown>).connection as
+        | { fetch: { register(route: Record<string, unknown>): () => void } }
+        | undefined;
+      if (connection === undefined) return;
+      connectionCtx.effect(
+        () => connection.fetch.register({
+          path: STATUS_PATH,
+          methods: ['GET'],
+          requestBody: 'buffered',
+          fetch: () => Promise.resolve(Response.json(status.get(), {
+            headers: { 'cache-control': 'no-store' },
+          })),
+        }),
+        'im-qqbot: status route',
+      );
+    });
+  } catch (error) {
+    logger.warn(`连接状态路由注册失败（状态点将不可用）: ${reason(error)}`);
   }
 
-  const resolvedConfig: ImQQBotConfig = { ...config, appId, appSecret };
+  // 关掉 Plugins 页对本行自动生成的配置表单：本插件自带设置页（浏览器半）。
+  // `settings` 只存在于 Web 组合，缺失时这个 inject 回调不会运行。
+  try {
+    ctx.inject(['settings'], (settingsCtx) => {
+      const settings = (settingsCtx as unknown as Record<string, unknown>).settings as
+        | { configure(presentation: { auto?: boolean }, owner?: unknown): () => void }
+        | undefined;
+      if (settings === undefined) return;
+      settingsCtx.effect(
+        () => settings.configure({ auto: false }, ctx.fiber),
+        'im-qqbot: settings presentation',
+      );
+    });
+  } catch (error) {
+    logger.warn(`关闭自动配置页失败（忽略）: ${reason(error)}`);
+  }
 
-  await bootstrapGateway(ctx, agents, resolvedConfig, logger);
+  /** 当前生效的网关 fiber；重建前必须销毁，否则旧连接与旧注册会泄漏。 */
+  let gateway: { dispose(): void | Promise<void> } | undefined;
+  /** 最近一次启动所用的配置签名，用于跳过无变化的重启。 */
+  let activeSignature: string | undefined;
+  /** 串行化重启：并发的 volatile 事件不会各建一个网关。 */
+  let pending: Promise<void> = Promise.resolve();
+  /**
+   * 网关代次：每次销毁 +1。旧网关的销毁是异步的，它随后回报的 'stopped'
+   * 不能覆盖新网关已经写入的 'starting'/'connected'，所以回报一律带代次校验。
+   */
+  let generation = 0;
+
+  const stopGateway = (): void => {
+    const current = gateway;
+    gateway = undefined;
+    activeSignature = undefined;
+    generation += 1;
+    if (current === undefined) return;
+    try {
+      void Promise.resolve(current.dispose()).catch((error: unknown) => {
+        logger.warn(`网关销毁失败（忽略）: ${reason(error)}`);
+      });
+    } catch (error) {
+      logger.warn(`网关销毁失败（忽略）: ${reason(error)}`);
+    }
+  };
+
+  /**
+   * 按当前配置启动（或重启）QQ 网关。
+   * @param allowQrSetup 凭据缺失时是否允许后台唤起扫码绑定；只有首次 apply 允许。
+   */
+  const startGateway = async (allowQrSetup: boolean): Promise<void> => {
+    const values = resolveConfigValues(config);
+    const appId = resolveEnv(values.appId, 'QQBOT_APPID').trim();
+    const appSecret = resolveEnv(values.appSecret, 'QQBOT_SECRET').trim();
+
+    if (!appId || !appSecret) {
+      stopGateway();
+      status.set({ state: 'unconfigured', appId: '', error: null });
+      logger.warn('QQ Bot 凭据未配置：请在「设置 → QQ Bot」填写 AppID / AppSecret，或设置 QQBOT_APPID / QQBOT_SECRET 环境变量。');
+      // 扫码是长时间交互流程：绝不 await。只在真的连着终端时后台发起，
+      // 否则（桌面版等无 TTY 场景）连试都不试，避免把启动拖住。
+      if (allowQrSetup && process.stdin.isTTY === true) void qrBind(logger);
+      return;
+    }
+
+    if (!/^\d+$/.test(appId)) {
+      stopGateway();
+      status.set({ state: 'error', appId, error: 'AppID 必须是纯数字' });
+      logger.error(`AppID "${appId}" 不是 QQ Bot 的数字 AppID，已跳过启动（不影响 harness）。请在设置页更正。`);
+      return;
+    }
+
+    const resolvedConfig: ImQQBotConfig = { ...values, appId, appSecret };
+
+    // QQ 会话的专属工作目录必须真实存在：它同时是 agent 的 cwd 与会话归档目录。
+    // 建目录失败只记录——Agent 创建时会再报一次，不影响 harness。
+    if (resolvedConfig.cwd) {
+      try {
+        mkdirSync(resolvedConfig.cwd, { recursive: true });
+      } catch (error) {
+        logger.warn(`创建 QQ 工作目录失败（忽略）: ${reason(error)}`);
+      }
+    }
+
+    const signature = JSON.stringify(resolvedConfig);
+    if (gateway !== undefined && signature === activeSignature) return;
+
+    stopGateway();
+
+    // QQ SDK 动态加载：缺包、装坏、版本不匹配都只让本插件降级。
+    let bootstrapGateway: typeof import('./gateway/index.ts').bootstrapGateway;
+    try {
+      ({ bootstrapGateway } = await import('./gateway/index.ts'));
+    } catch (error) {
+      status.set({ state: 'error', appId, error: reason(error) });
+      logger.error(`QQ SDK 加载失败，QQ 机器人未启动（不影响 harness）: ${reason(error)}`);
+      return;
+    }
+
+    activeSignature = signature;
+    status.set({ state: 'starting', appId, error: null });
+    /** 本次挂载的代次：旧网关的异步回报按它丢弃。 */
+    const mountedGeneration = generation;
+    try {
+      gateway = ctx.plugin({
+        name: 'im-qqbot-gateway',
+        apply: async (child: Context) => {
+          try {
+            await bootstrapGateway(child, agents, resolvedConfig, logger, (state, error) => {
+              if (mountedGeneration !== generation) return;
+              status.set({ state, appId, error: error ?? null });
+            }, (message) => {
+              // 功能级错误（预设挂载失败、会话创建失败）：不改连接状态，
+              // 只在设置页状态区留痕，方便定位。
+              status.set({ lastError: message });
+            });
+          } catch (error) {
+            if (mountedGeneration === generation) {
+              status.set({ state: 'error', appId, error: reason(error) });
+            }
+            logger.error(`QQ 网关启动失败（不影响 harness）: ${reason(error)}`);
+          }
+        },
+      });
+    } catch (error) {
+      activeSignature = undefined;
+      status.set({ state: 'error', appId, error: reason(error) });
+      logger.error(`QQ 网关挂载失败（不影响 harness）: ${reason(error)}`);
+    }
+  };
+
+  await startGateway(true);
+
+  // volatile 配置变更：新值已提交进引用，这里按新值重启网关。
+  // 事件名由 Loader 声明，本包不额外依赖那个包，沿用本仓库既有的强转写法。
+  (ctx as unknown as { on(event: string, handler: () => void): void })
+    .on('loader/volatile-update', () => {
+      pending = pending
+        .then(() => startGateway(false))
+        .catch((error: unknown) => {
+          logger.error(`配置变更后重启网关失败（不影响 harness）: ${reason(error)}`);
+        });
+    });
+}
+
+/**
+ * 终端扫码绑定：完全后台执行，绝不阻塞启动，失败只记录。
+ * 成功后凭据写入 profile，热更新会带着新值再走一次 startGateway。
+ */
+async function qrBind(logger: Logger): Promise<void> {
+  try {
+    const { runQrSetup, persistCredentialsToProfile } = await import('./setup.ts');
+    const credentials = await runQrSetup();
+
+    if (credentials === null) {
+      logger.error('扫码未取得凭据，QQ 机器人保持未启动');
+      return;
+    }
+
+    process.env.QQBOT_APPID = credentials.appId;
+    process.env.QQBOT_SECRET = credentials.appSecret;
+
+    if (persistCredentialsToProfile(credentials, getProfileDir() ?? undefined, logger)) {
+      logger.info('凭据已保存，等待热更新重新加载...');
+    } else {
+      logger.warn('凭据未能持久化，请在「设置 → QQ Bot」手动填写 AppID / AppSecret');
+    }
+  } catch (error) {
+    logger.error(`扫码绑定失败（不影响 harness）: ${reason(error)}`);
+  }
 }
