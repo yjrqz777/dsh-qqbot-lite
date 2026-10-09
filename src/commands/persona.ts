@@ -1,15 +1,59 @@
 /**
  * /persona — 管理和切换当前 QQ 对话的人格预设。
  *
- * /persona list      列出可用人格
+ * /persona list      用 QQ 原生按钮选择人格
  * /persona new       通过后续两条消息创建人格（名称、提示词）
  * /persona set <名>  为当前群或私聊设置人格
  * /persona reset     恢复默认人格
  */
 import type { CommandDeps, CategorizedCommand } from './types.ts';
-import { getScopePeer, sendMarkdownChunked } from '../shared/index.ts';
+import type { ChatScope } from '../types.ts';
+import type { SessionManager } from '../session/index.ts';
 
-export function personaCommand({ manager, config }: CommandDeps): CategorizedCommand {
+async function choosePersona(
+  manager: SessionManager,
+  scope: ChatScope,
+  peerId: string,
+): Promise<string> {
+  const presets = manager.listPersonaPresets();
+  if (presets.length === 0) return '目前没有可选的人格预设。';
+  if (!manager.questionChannel) {
+    return '当前 QQ 选项功能不可用。可以使用 /persona set <名称> 直接切换。';
+  }
+
+  const pageSize = 6;
+  let page = 0;
+  while (true) {
+    const entries = presets.slice(page * pageSize, (page + 1) * pageSize);
+    const labels = entries.map((preset, index) => `${index + 1}. ${preset.name}`);
+    const hasPrevious = page > 0;
+    const hasNext = (page + 1) * pageSize < presets.length;
+    const options = [
+      ...(hasPrevious ? ['上一页'] : []),
+      ...labels,
+      ...(hasNext ? ['下一页'] : []),
+      '取消',
+    ];
+    const current = manager.getEffectivePersonaName(scope, peerId);
+    const selected = await manager.questionChannel.chooseFromOptions(
+      scope,
+      peerId,
+      `当前人格：${current}。请选择要用于当前对话的人格。`,
+      options,
+    );
+    if (!selected || selected === '取消') return '已取消人格选择。';
+    if (selected === '上一页') { page -= 1; continue; }
+    if (selected === '下一页') { page += 1; continue; }
+
+    const index = labels.indexOf(selected);
+    const preset = index >= 0 ? entries[index] : undefined;
+    if (!preset) return '没有识别到这个选项，请重新发送 /persona list。';
+    manager.setPersonaOverride(scope, peerId, preset.name);
+    return `✅ 当前对话已切换为「${preset.name}」。新提示词会在下一轮对话中重新注入。`;
+  }
+}
+
+export function personaCommand({ manager }: CommandDeps): CategorizedCommand {
   return {
     name: 'persona',
     category: 'qqbot',
@@ -17,34 +61,34 @@ export function personaCommand({ manager, config }: CommandDeps): CategorizedCom
     handler: async (cmdCtx) => {
       const { scope, peerId } = getScopePeer(cmdCtx);
       const args = (cmdCtx.command?.raw ?? '').trim();
-      const [action = '', ...restParts] = args.split(/\s+/);
+      const [action = '', ...restParts] = args.split(/\\s+/);
       const value = restParts.join(' ').trim();
 
       if (!args) {
-        const current = manager.getEffectivePersonaName(scope, peerId);
-        const presets = manager.listPersonaPresets();
-        const lines = ['### 🎭 人格设置', '', `**当前对话:** ${current}`, '', '**选择操作:**',
-          '<qqbot-cmd-input text="/persona list" show="list"/> 查看预设',
-          '<qqbot-cmd-input text="/persona new" show="new"/> 新建预设',
-          '<qqbot-cmd-input text="/persona reset" show="恢复默认"/> 恢复默认人格',
-          '', '**快速切换:**'];
-        for (const preset of presets) {
-          lines.push(`<qqbot-cmd-input text="/persona set ${preset.name}" show="${preset.name}${preset.name === current ? ' ✓' : ''}"/>`);
+        if (!manager.questionChannel) {
+          return '当前 QQ 选项功能不可用。请使用 /persona list 查看预设，或 /persona new 创建人格。';
         }
-        await sendMarkdownChunked(cmdCtx, lines.join('\n'), config.textChunkLimit);
-        return { kind: 'noop' as const };
+        const current = manager.getEffectivePersonaName(scope, peerId);
+        const selected = await manager.questionChannel.chooseFromOptions(
+          scope,
+          peerId,
+          `人格设置。当前对话使用「${current}」。请选择操作。`,
+          ['查看/切换预设', '新建人格', '恢复默认人格'],
+        );
+        if (selected === '查看/切换预设') return choosePersona(manager, scope, peerId);
+        if (selected === '新建人格') {
+          manager.startPersonaCreation(scope, peerId);
+          return '请分两条消息发送：先发送人格名称，再发送完整提示词。创建后会自动应用到当前对话；发送 /persona cancel 可取消。群聊中点击选项即可，不需要额外 @。';
+        }
+        if (selected === '恢复默认人格') {
+          manager.clearPersonaOverride(scope, peerId);
+          return '✅ 当前对话已恢复默认人格；新提示词会在下一轮对话中注入。';
+        }
+        return '已取消人格操作。';
       }
 
       if (action === 'list') {
-        const current = manager.getEffectivePersonaName(scope, peerId);
-        const presets = manager.listPersonaPresets();
-        const lines = ['### 🎭 人格预设', '', `**当前对话:** ${current}`, '', '**点击预设切换当前对话:**'];
-        for (const preset of presets) {
-          lines.push(`<qqbot-cmd-input text="/persona set ${preset.name}" show="${preset.name}${preset.name === current ? ' ✓' : ''}"/>`);
-        }
-        lines.push('', '<qqbot-cmd-input text="/persona new" show="新建人格"/>');
-        await sendMarkdownChunked(cmdCtx, lines.join('\n'), config.textChunkLimit);
-        return { kind: 'noop' as const };
+        return choosePersona(manager, scope, peerId);
       }
 
       if (action === 'new') {
@@ -72,3 +116,5 @@ export function personaCommand({ manager, config }: CommandDeps): CategorizedCom
     },
   };
 }
+
+import { getScopePeer } from '../shared/index.ts';
