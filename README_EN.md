@@ -4,6 +4,8 @@
 
 **A QQ Bot plugin for [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) (dsh), connecting DeepSeek AI assistants to QQ private and group chats.**
 
+> This project is further developed from Tencent Connect's open-source [`@tencent-connect/dsh-qqbot`](https://github.com/tencent-connect/dsh-qqbot) v0.5.0.
+
 [![npm version](https://img.shields.io/npm/v/@yjrqz777/dsh-qqbot-lite)](https://www.npmjs.com/package/@yjrqz777/dsh-qqbot-lite)
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/yjrqz777/dsh-qqbot-lite)](https://github.com/yjrqz777/dsh-qqbot-lite)
@@ -23,6 +25,14 @@ Scan to join the QQ group / channel
 </table>
 
 </div>
+
+## Screenshots
+
+### QQ Bot settings and credentials
+![QQ Bot settings page](./docs/assets/qqbot-settings.png)
+
+### Suqing persona preset
+![Suqing persona settings](./docs/assets/persona-suqing.png)
 
 ## Architecture
 
@@ -231,6 +241,8 @@ export QQBOT_APPID="xxx" QQBOT_SECRET="xxx"
 npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot-lite/cordis.dev.yml
 ```
 
-## License
+## License and Third-Party Content
 
-[MIT](./LICENSE)
+The software code in this project is licensed under MIT; see [LICENSE](./LICENSE). This project is derived from Tencent Connect's dsh-qqbot v0.5.0, and retains the upstream MIT copyright notice.
+
+**The Suqing persona preset is not covered by this project's MIT license.** Before using, copying, or redistributing it, review and follow the original author's license and attribution requirements.

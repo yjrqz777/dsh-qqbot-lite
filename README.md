@@ -2,6 +2,8 @@
 
 基于 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) (dsh) 的 QQ Bot 插件，把 dsh agent 接入 QQ 私聊与群聊。
 
+> 本项目基于腾讯连接（Tencent Connect）开源的 [`@tencent-connect/dsh-qqbot`](https://github.com/tencent-connect/dsh-qqbot) v0.5.0 二次开发。
+
 ## 架构
 
 ```
@@ -10,6 +12,14 @@ QQ 用户 -> QQ WebSocket -> dsh-qqbot -> ctx.agents -> dsh agent loop -> LLM
                                  +-- session/event ---------+
                                      (assistant reply -> QQ sendMarkdown)
 ```
+
+## 界面截图
+
+### QQ Bot 配置与凭据
+![QQ Bot 设置页](./docs/assets/qqbot-settings.png)
+
+### 苏晴人格预设
+![人格配置页中的苏晴预设](./docs/assets/persona-suqing.png)
 
 ## 安装
 
@@ -130,6 +140,8 @@ pnpm dev       # tsc --watch
 pnpm test      # vitest
 ```
 
-## License
+## 开源协议与第三方内容
 
-[MIT](./LICENSE)
+本项目的软件代码采用 MIT 许可证，详见 [LICENSE](./LICENSE)。本项目基于腾讯连接的 dsh-qqbot v0.5.0 二次开发，并保留上游 MIT 版权声明。
+
+**苏晴人格预设不属于本项目代码的 MIT 授权范围。** 使用、复制或转载该预设前，请先查看并遵守原作者公布的许可与署名要求。
