@@ -160,8 +160,6 @@ export interface ImQQBotConfig {
   requireMention: boolean;
   /** 人格提示词，保存在独立配置文件 */
   personaPrompt?: string;
-  /** 内部迁移标记：默认人格已迁移到土豆小猫 */
-  personaDefaultVersion?: number;
   /** 人格预设，保存在独立配置文件 */
   personaPresets?: Array<{ name: string; prompt: string }>;
   /** 按 QQ 会话覆盖的人格预设，key 为 appId:scope:peerId */
