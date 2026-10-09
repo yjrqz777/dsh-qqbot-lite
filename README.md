@@ -44,6 +44,7 @@ npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot-lite/cordis.dev.yml
 | `groupPrompt` | string | - | 群聊额外 system prompt |
 | `directPrompt` | string | - | 私聊额外 system prompt |
 | `personaPrompt` | string | 空 | 对私聊和群聊统一生效的人格提示词，可在设置页多行编辑 |
+| `personaPresets` | object[] | `[]` | 设置页保存的人格预设 |
 | `textChunkLimit` | number | `4500` | 单条消息最大字符数 |
 | `streaming` | boolean | `true` | 是否启用流式输出（群聊始终不启用） |
 | `sessionIdleTimeout` | number | `1800000` | 会话闲置超时 (ms) |
@@ -84,7 +85,7 @@ npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot-lite/cordis.dev.yml
 | `sendFile.restrictPaths` | boolean | `true` | 路径白名单（仅 media + cwd + extraRoots） |
 | `sendFile.extraRoots` | string[] | `[]` | 额外允许访问的根目录 |
 
-## 内置命令
+QQ Bot 全部设置（包括 AppID、AppSecret、模型、权限、人格提示词和预设）保存在当前 profile 目录的 `dsh-qqbot-settings.json`。首次启动时会从现有 Cordis profile 配置读取默认值并初始化该文件；此后设置页以该文件为准。
 
 | 命令 | 说明 |
 |------|------|

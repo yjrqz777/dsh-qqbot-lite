@@ -1,10 +1,9 @@
 /**
  * dsh-im-qqbot 插件配置 Schema
  *
- * 所有可编辑字段都声明为 volatile：这既是「设置页可改」的前提（dsh 的
- * settings 服务只投影 volatile 字段，非 volatile 字段的写入会被宿主以
- * `Config field "..." is not volatile` 拒绝），也决定了改动语义——volatile
- * 变更不会重挂插件，只会发 `loader/volatile-update`，由 src/index.ts 自行重启网关。
+ * Cordis profile 配置保留为迁移来源和旧版兼容入口；运行时由独立 JSON 文件
+ * 持久化 QQ Bot 全量设置。volatile 更新会重新读取 JSON，并用当前 profile 值
+ * 补齐缺失字段。
  */
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -80,8 +79,10 @@ export interface ImQQBotConfig {
   cwd?: string;
   /** 是否启用群消息 @mention 门控 */
   requireMention: boolean;
-  /** 所有 QQ 会话共用的人格提示词 */
+  /** 人格提示词，保存在独立配置文件 */
   personaPrompt?: string;
+  /** 人格预设，保存在独立配置文件 */
+  personaPresets?: Array<{ name: string; prompt: string }>;
   /** 群聊额外 system prompt */
   groupPrompt?: string;
   /** 私聊额外 system prompt */
@@ -253,6 +254,7 @@ export function resolveConfigValues(config: ImQQBotFormConfig): ImQQBotConfig {
     cwd: config.cwd.get(),
     requireMention: config.requireMention.get(),
     personaPrompt: config.personaPrompt.get(),
+    personaPresets: config.personaPresets.get(),
     groupPrompt: config.groupPrompt.get(),
     directPrompt: config.directPrompt.get(),
     textChunkLimit: config.textChunkLimit.get(),

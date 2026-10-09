@@ -87,6 +87,7 @@ npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot-lite/cordis.dev.yml
 | `groupPrompt` | string | - | Extra system prompt for group chats |
 | `directPrompt` | string | - | Extra system prompt for direct chats |
 | `personaPrompt` | string | empty | Custom persona prompt shared by group and direct chats; editable as multiline text in settings |
+| `personaPresets` | object[] | `[]` | Persona presets saved from the settings page |
 | `textChunkLimit` | number | `4500` | Max chars per message |
 | `streaming` | boolean | `true` | Enable streaming output (always disabled in groups) |
 | `sessionIdleTimeout` | number | `1800000` | Session idle timeout (ms), default 30 min |
@@ -131,6 +132,8 @@ npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot-lite/cordis.dev.yml
 |------|------|--------|------|
 | `sendFile.restrictPaths` | boolean | `true` | Enable path allowlist (media + cwd + extraRoots only) |
 | `sendFile.extraRoots` | string[] | `[]` | Extra allowed root directories |
+
+All QQ Bot settings, including AppID, AppSecret, model, access control, persona prompt, and presets, are stored in `dsh-qqbot-settings.json` in the active profile directory. On first startup, the file is initialized from the existing Cordis profile configuration; the settings page uses this file afterward.
 
 ## Built-in Commands
 

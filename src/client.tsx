@@ -6,9 +6,8 @@
  *   window.__ModuleLoader__.load({ id: '<包名>', factory(require) { ... } })
  * `id` 必须是包名（@yjrqz777/dsh-qqbot-lite），否则该 Loader 行等不到注册。
  *
- * 配置读写不经过任何自有协议：页面用 dsh 的 settings 服务
- * （ctx.configForms）读写本插件在 profile 里的那一行 config，落盘、校验、
- * 乐观锁与热更新都由宿主负责。namespace 就是插件行的 id（im-qqbot）。
+ * QQ Bot 全量配置通过宿主 connection 路由读写 profile 下的独立 JSON 文件；
+ * 该文件首次创建时从当前 Cordis profile 配置迁移默认值。
  *
  * 隔离：整个脚本包在 IIFE 里（经典脚本共享全局词法作用域，顶层声明会撞名，
  * 撞名会让脚本整体失效并报 "loaded without registering"）；factory 的依赖加载
@@ -66,9 +65,10 @@ const NS = 'im-qqbot';
 const ORDER = 90;
 
 /** 宿主半注册的连接状态路由（文档相对路径，与 src/index.ts 的常量对应）。 */
-const STATUS_ROUTE = 'api/dsh-qqbot/status';
-const CONNECT_ROUTE = 'api/dsh-qqbot/connect';
-const DISCONNECT_ROUTE = 'api/dsh-qqbot/disconnect';
+const STATUS_ROUTE = '/api/dsh-qqbot/status';
+const CONNECT_ROUTE = '/api/dsh-qqbot/connect';
+const DISCONNECT_ROUTE = '/api/dsh-qqbot/disconnect';
+const SETTINGS_ROUTE = '/api/dsh-qqbot/settings';
 
 /** 状态轮询间隔(ms)。 */
 const STATUS_POLL_MS = 5000;
@@ -223,16 +223,14 @@ window.__ModuleLoader__.load({
       useState: (init: any) => [any, (next: any) => void];
       useEffect: (fn: () => void, deps: any[]) => void;
     };
-    let createSnapshotStore: (init: any) => { getSnapshot(): any; set(next: any): void; subscribe(fn: () => void): () => void };
     try {
       React = require('react');
-      createSnapshotStore = require('@deepseek-ai/dsh-client-store').createSnapshotStore;
     } catch (error: unknown) {
       console.error('[im-qqbot] 客户端半依赖加载失败（已隔离，不影响外壳）:', error);
       return { inject: [], apply(): void {} };
     }
     const h = React.createElement;
-    const inject = ['slots', 'configForms'];
+    const inject = ['slots'];
 
     /** 按固定路径读取嵌套值。 */
     const valueAt = (root: any, path: string[]): any =>
@@ -265,48 +263,6 @@ window.__ModuleLoader__.load({
         return text.split(/[\n,，]/).map(part => part.trim()).filter(part => part !== '');
       }
       return text;
-    }
-
-    /**
-     * 表单控制器：把 configForms 的共享表单投影成页面可订阅的快照，
-     * 并把一次「保存」排队成一次 mutate（单次写入 = 单次 revision 校验）。
-     */
-    function createController(form: any) {
-      const store = createSnapshotStore({
-        status: 'loading', value: {}, writable: false, mode: 'memory', revision: 0, error: null,
-      });
-
-      const sync = (): void => {
-        const snapshot = form.getSnapshot();
-        store.set({
-          status: snapshot.status,
-          value: snapshot.value ?? {},
-          writable: snapshot.writable,
-          mode: snapshot.mode,
-          revision: snapshot.revision ?? 0,
-          error: null,
-        });
-      };
-      const off = form.subscribe(sync);
-      sync();
-
-      const fail = (message: string): false => {
-        store.set({ ...store.getSnapshot(), error: message });
-        return false;
-      };
-
-      const mutate = async (ops: any[]): Promise<boolean> => {
-        try {
-          const accepted = await form.mutate(ops);
-          return accepted === true
-            ? true
-            : fail('宿主拒绝了这次保存（配置可能已被别处改动），页面已回到最新值。');
-        } catch (error: unknown) {
-          return fail(error instanceof Error ? error.message : String(error));
-        }
-      };
-
-      return { store, mutate, dispose: (): void => { off(); } };
     }
 
     /** 状态点颜色与文案。 */
@@ -384,13 +340,29 @@ window.__ModuleLoader__.load({
       }));
     }
 
+    function setAtPath(root: any, path: string[], value: unknown): void {
+      let node = root;
+      for (const key of path.slice(0, -1)) {
+        if (node[key] === null || typeof node[key] !== 'object') node[key] = {};
+        node = node[key];
+      }
+      node[path[path.length - 1]] = value;
+    }
+
+    async function persistSettings(value: any): Promise<any> {
+      const response = await fetch(SETTINGS_ROUTE, {
+        method: 'POST',
+        headers: { accept: 'application/json', 'content-type': 'application/json' },
+        body: JSON.stringify(value),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result?.error ?? '设置保存失败');
+      return result;
+    }
+
     /** 设置导航里的 QQ Bot 配置页。 */
-    function QqbotSettingsPage(props: any): any {
-      // 渲染器绑定的 use<Name> 是 uSES 选择器 hook，selector 必填
-      // （ui-renderer 的 bindSnapshotSelector 直接把它交给
-      // useSyncExternalStoreWithSelector）。恒等选择器即取整份快照。
-      const snapshot = props.useQqbotSettings((state: any) => state);
-      const save = props.mutateQqbotSettings as (ops: any[]) => Promise<boolean>;
+    function QqbotSettingsPage(): any {
+      const [snapshot, setSnapshot] = React.useState({ status: 'loading', value: {}, writable: false, mode: 'profile-file', revision: 0, error: null } as any);
 
       const [drafts, setDrafts] = React.useState({} as Record<string, any>);
       const [saveState, setSaveState] = React.useState({ status: 'idle', message: '' } as { status: string; message: string });
@@ -398,6 +370,20 @@ window.__ModuleLoader__.load({
       const [selectedPreset, setSelectedPreset] = React.useState('自定义');
       const [presetName, setPresetName] = React.useState('');
       const [connectionBusy, setConnectionBusy] = React.useState(false);
+
+      React.useEffect(() => {
+        let alive = true;
+        void fetch(SETTINGS_ROUTE, { headers: { accept: 'application/json' } })
+          .then(async response => {
+            const value = await response.json();
+            if (!response.ok) throw new Error(value?.error ?? '读取设置失败');
+            if (alive) setSnapshot({ status: 'ready', value, writable: true, mode: 'profile-file', revision: 0, error: null });
+          })
+          .catch((error: unknown) => {
+            if (alive) setSnapshot((current: any) => ({ ...current, status: 'unavailable', error: error instanceof Error ? error.message : String(error) }));
+          });
+        return () => { alive = false; };
+      }, []);
 
       // 连接状态轮询：宿主半的 /api/dsh-qqbot/status。
       // 路由不存在（宿主没装 connection 服务）时一直是「状态未知」，不影响配置。
@@ -449,16 +435,19 @@ window.__ModuleLoader__.load({
         }
         const nextPresets = [...personaPresets.filter((item: any) => item.name !== name), { name, prompt: selectedPrompt }];
         setSaveState({ status: 'saving', message: '保存预设中…' });
-        const accepted = await save([
-          { op: 'set', path: ['personaPresets'], value: nextPresets },
-          { op: 'set', path: ['personaPrompt'], value: selectedPrompt },
-        ]);
-        if (accepted) {
-          setDrafts((current: Record<string, any>) => { const next = { ...current }; delete next.personaPrompt; return next; });
+        try {
+          const next = JSON.parse(JSON.stringify(snapshot.value));
+          setAtPath(next, ['personaPresets'], nextPresets);
+          setAtPath(next, ['personaPrompt'], selectedPrompt);
+          const saved = await persistSettings(next);
+          setSnapshot({ ...snapshot, status: 'ready', value: saved, writable: true, error: null });
+          setDrafts((current: Record<string, any>) => { const nextDrafts = { ...current }; delete nextDrafts.personaPrompt; return nextDrafts; });
           setSelectedPreset(name);
           setPresetName('');
           setSaveState({ status: 'saved', message: '预设已保存' });
-        } else setSaveState({ status: 'error', message: '预设保存失败，见下方提示' });
+        } catch (error: unknown) {
+          setSaveState({ status: 'error', message: error instanceof Error ? error.message : String(error) });
+        }
       };
       const personaTools = h('div', { className: 'dqb-preset-tools' },
         h('select', {
@@ -491,12 +480,15 @@ window.__ModuleLoader__.load({
         if (ops.length === 0) return;
 
         setSaveState({ status: 'saving', message: '保存中…' });
-        const accepted = await save(ops);
-        if (accepted) {
+        try {
+          const next = JSON.parse(JSON.stringify(snapshot.value));
+          for (const op of ops) setAtPath(next, op.path, op.value);
+          const saved = await persistSettings(next);
+          setSnapshot({ ...snapshot, status: 'ready', value: saved, writable: true, error: null });
           setDrafts({});
           setSaveState({ status: 'saved', message: `已保存（${new Date().toLocaleTimeString()}）` });
-        } else {
-          setSaveState({ status: 'error', message: '保存被拒绝，见下方提示' });
+        } catch (error: unknown) {
+          setSaveState({ status: 'error', message: error instanceof Error ? error.message : String(error) });
         }
       };
 
@@ -539,7 +531,7 @@ window.__ModuleLoader__.load({
       const notice = snapshot.status === 'loading'
         ? h('p', { className: 'dqb-notice' }, '正在读取配置…')
         : snapshot.status === 'unavailable'
-          ? h('p', { className: 'dqb-notice' }, '宿主未提供 im-qqbot 的配置表单（插件未启用，或该行配置被 home patch / --patch 覆盖）。')
+          ? h('p', { className: 'dqb-notice' }, '无法读取 QQ Bot 独立配置文件；请确认插件已启用且 profile 目录可写。')
           : snapshot.error !== null
             ? h('p', { className: 'dqb-notice dqb-error' }, String(snapshot.error))
             : null;
@@ -552,7 +544,7 @@ window.__ModuleLoader__.load({
       return h('div', { className: 'dqb-page' },
         h('style', null, CSS),
         toolbar,
-        h('p', { className: 'dqb-meta' }, `改动先存在页面上，点「保存」写回 profile 的 cordis.patch.yml 并即时生效（mode: ${snapshot.mode}）。`),
+        h('p', { className: 'dqb-meta' }, '全部 QQ Bot 配置保存在 profile 目录下的 dsh-qqbot-settings.json。'),
         runtimeError,
         notice,
         body);
@@ -564,18 +556,12 @@ window.__ModuleLoader__.load({
      */
     function apply(ctx: any): void {
       try {
-        const controller = createController(ctx.configForms.get(NS));
-        ctx.effect(() => () => { controller.dispose(); }, 'im-qqbot: settings form subscription');
-        ctx.effect(() => ctx.configForms.whileServed([NS], () => ctx.slots.inject('settings.section', () => ctx.slots.register({
+        ctx.effect(() => ctx.slots.inject('settings.section', () => ctx.slots.register({
           name: 'settings.section',
           id: 'qqbot',
           order: ORDER,
           label: () => 'QQ Bot',
-          inject: () => ({
-            hooks: { qqbotSettings: controller.store },
-            mutateQqbotSettings: controller.mutate,
-          }),
-        }, QqbotSettingsPage))), 'im-qqbot: settings page');
+        }, QqbotSettingsPage)), 'im-qqbot: settings page');
       } catch (error: unknown) {
         console.error('[im-qqbot] 设置页注册失败（已隔离，不影响外壳）:', error);
       }
