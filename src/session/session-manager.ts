@@ -237,6 +237,20 @@ export class SessionManager {
     }, this.config, this.profileDir);
   }
 
+  /** 记录机器人已收到消息的群/好友，用于设置页逐会话配置。 */
+  rememberPersonaPeer(scope: ChatScope, peerId: string, label: string): void {
+    const peers = this.config.personaPeers ?? [];
+    const existing = peers.find((peer) => peer.scope === scope && peer.peerId === peerId);
+    if (existing) {
+      if (existing.label === label) return;
+      existing.label = label;
+    } else {
+      peers.push({ scope, peerId, label });
+    }
+    this.config.personaPeers = peers;
+    this.persistPersonaSettings();
+  }
+
   /** 创建预设并应用到当前会话。保存预设不会重连机器人。 */
   createPersonaPreset(scope: ChatScope, peerId: string, name: string, prompt: string): boolean {
     const cleanName = name.trim();
