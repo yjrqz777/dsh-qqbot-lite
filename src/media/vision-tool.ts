@@ -152,6 +152,24 @@ async function callVision(
   return text;
 }
 
+/** 将本地图片转换为 dsh UserMessage 可消费的图像块。 */
+export async function createImageBlockFromPath(
+  ctx: Context,
+  image: string,
+  maxBytes: number,
+  signal: AbortSignal,
+): Promise<ImageBlock> {
+  const attachments = ctx.get('attachments') as AttachmentStoreLike | undefined;
+  if (!attachments?.saveImage) throw new Error('attachments 服务不可用');
+
+  const loaded = await loadImageBytes(image, maxBytes, signal);
+  const attachment = await attachments.saveImage({
+    data: loaded.data,
+    mediaType: loaded.mediaType,
+    name: basename(image),
+  });
+  return { type: 'image', attachment };
+}
 /** 展开 `~`/`~/`/`~\` 前缀 */
 function expandHomePath(path: string): string {
   if (path === '~') return homedir();
