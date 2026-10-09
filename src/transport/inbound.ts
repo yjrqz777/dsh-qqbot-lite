@@ -101,7 +101,11 @@ export async function handleInbound(
   const peerLabel = scope === 'group'
     ? String(msg.groupName ?? msg.group_name ?? `群聊 ${shortId}`)
     : (msg.senderName?.trim() || `好友 ${shortId}`);
-  manager.rememberPersonaPeer(scope, peerId, peerLabel);
+  try {
+    manager.rememberPersonaPeer(scope, peerId, peerLabel);
+  } catch (error) {
+    logger.warn(`记录 QQ 会话失败: ${error instanceof Error ? error.message : String(error)}`);
+  }
 
   const replyTarget: ReplyTarget = {
     scope,
