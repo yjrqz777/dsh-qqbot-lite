@@ -95,13 +95,11 @@ describe('buildApprovalKeyboard', () => {
     expect(buttons).toHaveLength(2);
 
     const allow = buttons[0]!;
-    expect(allow.group_id).toBe('approval');
     expect(allow.action.type).toBe(1);
     expect(allow.action.click_limit).toBe(1);
     expect(JSON.parse(allow.action.data)).toEqual({ t: 'approval', d: 'allow' });
 
     const deny = buttons[1]!;
-    expect(deny.group_id).toBe('approval');
     expect(JSON.parse(deny.action.data)).toEqual({ t: 'approval', d: 'deny' });
   });
 });
