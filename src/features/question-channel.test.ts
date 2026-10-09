@@ -37,10 +37,12 @@ function makeRecord(sessionKeyStr: string, scope: ChatScope = 'c2c'): QuestionSe
 
 function createManager(opts?: {
   findBySessionId?: (id: string) => QuestionSessionRecordLike | undefined;
+  findByAgent?: (agent: { id: string }) => QuestionSessionRecordLike | undefined;
   getSessionRecord?: (scope: ChatScope, peerId: string) => QuestionSessionRecordLike | undefined;
 }) {
   return {
     findBySessionId: opts?.findBySessionId ?? (() => undefined),
+    findByAgent: opts?.findByAgent,
     // 默认按 scope+peerId 派生 sessionKey 反查，与 startAsk 的 key 生成保持一致
     getSessionRecord: opts?.getSessionRecord ?? ((scope: ChatScope, peerId: string) => makeRecord(sessionKey(scope, peerId), scope)),
   };
@@ -381,5 +383,55 @@ describe('QuestionChannel.install routing', () => {
     const ch = new QuestionChannel(createManager(), createSender(sent), { requireMention: false, askTimeoutMs: 60_000 }, logger);
     ch.install({ get: () => undefined });
     expect(logger.warn).not.toHaveBeenCalled();
+  });
+});
+
+describe('QuestionChannel model-callable tool', () => {
+  it('registers qqbot_ask_user and returns the clicked option', async () => {
+    const sent: SentMessage[] = [];
+    const record = makeRecord(sessionKey('c2c', 'u9'));
+    const manager = createManager({ findByAgent: () => record });
+    const ch = new QuestionChannel(manager, createSender(sent), { requireMention: false, askTimeoutMs: 60_000 }, createLogger());
+    let definition: any;
+    ch.install({
+      get: (name: string) => name === 'tools'
+        ? { register: (tool: unknown) => { definition = tool; } }
+        : undefined,
+    });
+
+    expect(definition?.name).toBe('qqbot_ask_user');
+    const controller = new AbortController();
+    const answer = definition.execute(
+      { question: '午饭想吃什么？', options: ['面条', '米饭'] },
+      { signal: controller.signal, agent: { id: 'agent-1' } },
+    );
+    await sleep(20);
+    expect(sent[0]?.opts?.keyboard).toBeDefined();
+
+    const keyboard = sent[0]!.opts!.keyboard as { content: { rows: Array<{ buttons: Array<{ action: { data: string } }> }> } };
+    const buttonData = keyboard.content.rows[0]!.buttons[1]!.action.data;
+    const event = {
+      id: 'interaction-1',
+      type: 1,
+      version: 1,
+      user_openid: 'u9',
+      data: { type: 1, resolved: { button_data: buttonData } },
+    } as InteractionEvent;
+    expect(ch.handleInteraction(event)).toBe(true);
+    await expect(answer).resolves.toEqual({ selected: '米饭' });
+  });
+
+  it('rejects invalid option counts before sending a question', async () => {
+    const ch = new QuestionChannel(createManager(), createSender([]), { requireMention: false, askTimeoutMs: 60_000 }, createLogger());
+    let definition: any;
+    ch.install({
+      get: (name: string) => name === 'tools'
+        ? { register: (tool: unknown) => { definition = tool; } }
+        : undefined,
+    });
+    await expect(definition.execute(
+      { question: '测试', options: ['只有一个'] },
+      { signal: new AbortController().signal },
+    )).rejects.toThrow('2 to 8');
   });
 });

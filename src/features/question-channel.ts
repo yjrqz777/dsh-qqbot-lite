@@ -10,6 +10,9 @@
  *   - 完成 / 中断（abort / 超时 / 会话回收）：reject(ASK_ABORTED)
  */
 import type { InlineKeyboard, InteractionEvent } from '@tencent-connect/qqbot-nodejs';
+import { randomUUID } from 'node:crypto';
+import type { ContentBlock } from '@deepseek-ai/dsh-llm';
+import type { DshAgent } from '../session/index.ts';
 import type { ChatScope, Logger, ReplyTarget } from '../types.ts';
 import { parseAnswer } from './answer-parser.ts';
 import { buildKeyboard, formatQuestion } from './question-renderer.ts';
@@ -62,11 +65,23 @@ export interface QuestionSessionRecordLike {
 export interface QuestionChannelManagerLike {
   findBySessionId(sessionId: string): QuestionSessionRecordLike | undefined;
   getSessionRecord(scope: ChatScope, peerId: string): QuestionSessionRecordLike | undefined;
+  findByAgent?(agent: DshAgent): QuestionSessionRecordLike | undefined;
 }
 
 export interface QuestionChannelSenderLike {
   sendMarkdown(target: ReplyTarget, content: string, opts?: { keyboard?: InlineKeyboard }): Promise<unknown>;
 }
+
+interface ToolsRegistryLike {
+  register(definition: unknown): unknown;
+}
+
+interface AskUserToolArgs {
+  question: string;
+  options: string[];
+}
+
+export const ASK_USER_TOOL_NAME = 'qqbot_ask_user';
 
 export interface QuestionChannelConfigLike {
   requireMention: boolean;
@@ -107,6 +122,7 @@ export class QuestionChannel {
   private readonly pending = new Map<string, PendingEntry>();
   private uq?: UserQuestionsServiceLike;
   private origAsk?: UserQuestionsServiceLike['ask'];
+  private askToolRegistered = false;
   private readonly manager: QuestionChannelManagerLike;
   private readonly sender: QuestionChannelSenderLike;
   private readonly config: QuestionChannelConfigLike;
@@ -129,10 +145,12 @@ export class QuestionChannel {
    * 幂等（已 patch 则跳过）；服务缺失或 ask 非函数时优雅禁用。
    */
   public install(ctx: { get(name: string): unknown }): void {
+    this.registerAskTool(ctx);
+
     const uq = ctx.get('userQuestions') as UserQuestionsServiceLike | undefined;
     if (!uq || uq.__qqQuestionPatched) return;
     if (typeof uq.ask !== 'function') {
-      this.logger.warn('im-qqbot: userQuestions service lacks ask() — QQ question channel disabled');
+      this.logger.warn('im-qqbot: userQuestions service lacks ask() — host question bridge disabled; qqbot_ask_user remains available');
       return;
     }
 
@@ -147,6 +165,81 @@ export class QuestionChannel {
     Object.defineProperty(uq, '__qqQuestionPatched', { value: true, configurable: true, enumerable: false });
     this.uq = uq;
     this.logger.info('im-qqbot: QQ question channel installed');
+  }
+
+  /** 注册模型可直接调用的单选提问工具；不依赖宿主是否提供 userQuestions.ask。 */
+  private registerAskTool(ctx: { get(name: string): unknown }): void {
+    if (this.askToolRegistered) return;
+
+    const tools = ctx.get('tools') as ToolsRegistryLike | undefined;
+    if (!tools?.register) {
+      this.logger.warn('im-qqbot: tools 服务不可用，qqbot_ask_user 工具未注册');
+      return;
+    }
+
+    const self = this;
+    tools.register({
+      name: ASK_USER_TOOL_NAME,
+      description: 'Ask the user in the current QQ conversation to choose one option. It sends clickable buttons and waits for the user to click or reply with an option. Use only when a decision or clarification is needed; never guess the user’s choice.',
+      parameters: {
+        type: 'object',
+        properties: {
+          question: { type: 'string', description: 'A short question for the user.' },
+          options: {
+            type: 'array',
+            description: 'Two to eight concise single-choice options.',
+            minItems: 2,
+            maxItems: 8,
+            items: { type: 'string', minLength: 1, maxLength: 100 },
+          },
+        },
+        required: ['question', 'options'],
+        additionalProperties: false,
+      },
+      output: {
+        schema: {
+          type: 'object',
+          properties: { selected: { type: 'string' } },
+          required: ['selected'],
+          additionalProperties: false,
+        },
+        render: (_args: unknown, value: unknown): ContentBlock[] => [
+          { type: 'text', text: `用户选择了：${(value as { selected: string }).selected}` },
+        ],
+      },
+      async execute(args: unknown, exec: { signal: AbortSignal; agent?: unknown }): Promise<Record<string, unknown>> {
+        const input = args as AskUserToolArgs;
+        const question = typeof input?.question === 'string' ? input.question.trim() : '';
+        const options = Array.isArray(input?.options)
+          ? input.options.filter((option): option is string => typeof option === 'string').map(option => option.trim())
+          : [];
+        if (!question) throw new Error('qqbot_ask_user: question must be a non-empty string');
+        if (options.length < 2 || options.length > 8 || options.some(option => !option)) {
+          throw new Error('qqbot_ask_user: provide 2 to 8 non-empty options');
+        }
+
+        const agent = exec.agent as DshAgent | undefined;
+        const record = agent ? self.manager.findByAgent?.(agent) : undefined;
+        if (!record) {
+          throw new Error('qqbot_ask_user: cannot find the current QQ conversation');
+        }
+
+        const result = await self.askViaQQ(record, {
+          questions: [{
+            id: randomUUID(),
+            question,
+            options: options.map(label => ({ label })),
+          }],
+          ...(agent ? { agent: { id: agent.id } } : {}),
+          signal: exec.signal,
+        });
+        const answer = result.answers[0];
+        return { selected: answer?.selected[0] ?? answer?.custom ?? '' };
+      },
+    });
+
+    this.askToolRegistered = true;
+    this.logger.info('im-qqbot: qqbot_ask_user tool registered');
   }
 
   public uninstall(): void {
@@ -236,8 +329,6 @@ export class QuestionChannel {
     const first = request.questions[0];
     if (!first) throw new Error('ask_user_question with empty questions');
 
-    await this.sendQuestion(record, first);
-
     return new Promise<UserQuestionResult>((resolve, reject) => {
       const entry: PendingEntry = { record, request, resolve, reject, index: 0, collected: [] };
       if (request.signal) {
@@ -251,8 +342,16 @@ export class QuestionChannel {
         request.signal.addEventListener('abort', onAbort, { once: true });
       }
       entry.timer = setTimeout(() => this.onTimeout(key), this.config.askTimeoutMs);
+      // Install pending state before sending so a fast button click cannot race registration.
       this.pending.set(key, entry);
       this.logger.info(`im-qqbot: question sent to QQ, waiting for answer key=${key}`);
+      void this.sendQuestion(record, first).catch((err) => {
+        if (this.pending.get(key) !== entry) return;
+        this.pending.delete(key);
+        this.clearTimer(entry);
+        this.removeAbort(entry);
+        reject(err instanceof Error ? err : new Error(String(err)));
+      });
     });
   }
 
