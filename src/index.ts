@@ -254,7 +254,7 @@ async function bootstrap(ctx: Context, config: ImQQBotFormConfig, logger: Logger
               // 功能级错误（预设挂载失败、会话创建失败）：不改连接状态，
               // 只在设置页状态区留痕，方便定位。
               status.set({ lastError: message });
-            });
+            }, profileDir);
           } catch (error) {
             if (mountedGeneration === generation) {
               status.set({ state: 'error', appId, error: reason(error) });
