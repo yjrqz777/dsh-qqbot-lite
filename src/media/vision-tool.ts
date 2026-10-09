@@ -170,6 +170,7 @@ export async function createImageBlockFromPath(
   });
   return { type: 'image', attachment };
 }
+
 /** 展开 `~`/`~/`/`~\` 前缀 */
 function expandHomePath(path: string): string {
   if (path === '~') return homedir();
