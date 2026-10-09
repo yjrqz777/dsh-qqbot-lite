@@ -42,6 +42,11 @@ function normalize(value: unknown, defaults: ImQQBotConfig): ImQQBotConfig {
     ? result.personaOverrides as Record<string, unknown>
     : {};
   result.personaOverrides = Object.fromEntries(Object.entries(overrides).filter((entry): entry is [string, string] => typeof entry[1] === 'string'));
+  const peers = Array.isArray(result.personaPeers) ? result.personaPeers : [];
+  result.personaPeers = peers.filter((item) => item !== null && typeof item === 'object'
+    && (item.scope === 'group' || item.scope === 'c2c')
+    && typeof item.peerId === 'string' && typeof item.label === 'string')
+    .map((item) => ({ scope: item.scope, peerId: item.peerId, label: item.label }));
   const presets = Array.isArray(result.personaPresets)
     ? result.personaPresets.filter((item) => item !== null && typeof item === 'object'
       && typeof item.name === 'string' && typeof item.prompt === 'string')
