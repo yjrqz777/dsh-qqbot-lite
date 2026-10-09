@@ -104,6 +104,17 @@ export async function handleInbound(
     msgId: msg.messageId,
   };
 
+  // /persona new 的后续名称/提示词由插件消费，不作为普通聊天转发给 Agent。
+  const personaCreationReply = await manager.consumePersonaCreation(scope, peerId, msg.content ?? '');
+  if (personaCreationReply) {
+    try {
+      await bot.sendMarkdown(replyTarget, personaCreationReply);
+    } catch (error) {
+      logger.warn(`发送人格创建提示失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    return;
+  }
+
   // ── 组装 agentBody（下载结果经 mwState.downloadedFiles 提供） ──
   const agentBody = assembleAgentBody(msg, mwState, scope, logger);
 
