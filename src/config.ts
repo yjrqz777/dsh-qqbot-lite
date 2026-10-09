@@ -162,6 +162,8 @@ export interface ImQQBotConfig {
   personaPrompt?: string;
   /** 人格预设，保存在独立配置文件 */
   personaPresets?: Array<{ name: string; prompt: string }>;
+  /** 按 QQ 会话覆盖的人格预设，key 为 appId:scope:peerId */
+  personaOverrides?: Record<string, string>;
   /** 群聊额外 system prompt */
   groupPrompt?: string;
   /** 私聊额外 system prompt */
@@ -257,7 +259,7 @@ export const ConfigSchema: Schemastery = Schema.object({
   preset: Schema.string().description('Agent preset id（留空 = 继承宿主默认）').volatile(),
   cwd: Schema.string().default(DEFAULT_QQBOT_CWD).description('Agent working directory（QQ 会话专属目录，GUI 里显示为「未分组」）').volatile(),
   requireMention: Schema.boolean().default(true).description('群聊是否需要@bot触发').volatile(),
-  personaPrompt: Schema.string().default('').description('所有 QQ 会话共用的人格提示词').volatile(),
+  personaPrompt: Schema.string().default(TUDOU_PERSONA_PRESET.prompt).description('所有 QQ 会话默认人格提示词').volatile(),
   personaPresets: Schema.array(Schema.object({ name: Schema.string(), prompt: Schema.string() })).default(DEFAULT_PERSONA_PRESETS.map(({ name, prompt }) => ({ name, prompt }))).description('人格提示词预设').volatile(),
   groupPrompt: Schema.string().description('群聊额外system prompt').volatile(),
   directPrompt: Schema.string().description('私聊额外system prompt').volatile(),  textChunkLimit: Schema.number().default(4500).description('单条消息最大字符数').volatile(),
