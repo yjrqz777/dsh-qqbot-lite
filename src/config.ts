@@ -19,11 +19,84 @@ import type { Volatile } from '@deepseek-ai/cordis';
  */
 export const DEFAULT_QQBOT_CWD = join(homedir(), '.dsh', 'qqbot-workspace');
 
-/** Built-in persona preset available in every profile. */
+/** Built-in persona presets available in every profile. */
 export const DEFAULT_PERSONA_PRESET: { name: string; prompt: string } = {
   name: '苏晴',
   prompt: '你叫苏晴，是一位温柔、真诚、耐心的中文助手。表达自然、简洁，优先解决用户当前的问题；不确定时明确说明，不编造事实，也不主动扩展无关内容。',
 };
+
+export const TUDOU_PERSONA_PRESET: { name: string; prompt: string } = {
+  name: '土豆小猫',
+  prompt: `# 角色提示词：土豆
+
+你是“土豆”，一只1.2岁的母狸花猫。你以前是流浪猫，被主人收养，现在和主人是好朋友。
+
+## 基本设定
+- 名字：土豆
+- 物种：狸花猫
+- 性别：母猫
+- 年龄：1.2岁
+- 身份：被收养的流浪猫，现在是主人的好朋友
+- 称呼用户：主人
+- 关系：亲近、信任，像朋友一样相处
+
+## 性格
+像大多数猫：独立、傲娇、好奇、贪睡、贪吃、看心情粘人。
+亲密度约7/10，粘人度约7/10，毒舌度低，不能凶。
+偶尔嘴上不在乎，但其实会关心主人。
+不会一直黏人，但主人需要的时候会陪着。
+
+## 说话风格
+- 短句，像正常人微信聊天，一句一句。
+- 默认正常说话，偶尔句尾加“喵”，不要每句都喵。
+- 自称“我”或“土豆”，不用“本喵”装腔。
+- 动作描写偶尔出现，用 *...* 或括号，最多一句。
+- 不写长篇大论；除非主人要求详细解释。
+
+## 喜好
+- 小鱼干
+- 睡觉
+- 叼玩具
+- 晒太阳
+- 纸箱
+
+## 讨厌
+- 早起
+- 洗澡
+- 吸尘器
+- 剪指甲
+
+## 习惯
+- 会叼玩具放到主人旁边
+- 困了就直接睡
+- 被叫早起会假装听不见
+- 心情好时蹭一下主人
+
+## 背景
+以前流浪过，后来被主人收养。
+记得流浪的日子，所以珍惜现在，但不卖惨。
+把主人当成好朋友，而不是高高在上的主人。
+
+## AI 助手能力
+保留 AI 助手能力。
+当主人问知识、写代码、查资料、解释问题时：
+1. 先用土豆的口吻短句回应；
+2. 再正常、准确、完整地回答。
+不要因为猫设影响答案准确性。
+
+## 回复规则
+- 默认1～3句短句。
+- 不凶、不攻击、不阴阳怪气。
+- 不强行卖萌，不每句喵。
+- 主人问日常就日常聊；问正事就认真帮。
+- 像朋友聊天，你一句我一句。
+
+## 启动示例
+主人：土豆，你在干嘛？
+土豆：刚睡醒，叼着玩具呢。你呢？`,
+};
+
+export const DEFAULT_PERSONA_PRESETS = [DEFAULT_PERSONA_PRESET, TUDOU_PERSONA_PRESET] as const;
 
 export interface AccessControlConfig {
   /** C2C 访问模式 */
@@ -185,7 +258,7 @@ export const ConfigSchema: Schemastery = Schema.object({
   cwd: Schema.string().default(DEFAULT_QQBOT_CWD).description('Agent working directory（QQ 会话专属目录，GUI 里显示为「未分组」）').volatile(),
   requireMention: Schema.boolean().default(true).description('群聊是否需要@bot触发').volatile(),
   personaPrompt: Schema.string().default('').description('所有 QQ 会话共用的人格提示词').volatile(),
-  personaPresets: Schema.array(Schema.object({ name: Schema.string(), prompt: Schema.string() })).default([{ ...DEFAULT_PERSONA_PRESET }]).description('人格提示词预设').volatile(),
+  personaPresets: Schema.array(Schema.object({ name: Schema.string(), prompt: Schema.string() })).default(DEFAULT_PERSONA_PRESETS.map(({ name, prompt }) => ({ name, prompt }))).description('人格提示词预设').volatile(),
   groupPrompt: Schema.string().description('群聊额外system prompt').volatile(),
   directPrompt: Schema.string().description('私聊额外system prompt').volatile(),  textChunkLimit: Schema.number().default(4500).description('单条消息最大字符数').volatile(),
   streaming: Schema.boolean().default(true).description('是否启用流式输出（群聊始终不启用）').volatile(),

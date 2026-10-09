@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { getProfileDir } from './shared/utils.ts';
-import { DEFAULT_PERSONA_PRESET, type ImQQBotConfig } from './config.ts';
+import { DEFAULT_PERSONA_PRESETS, type ImQQBotConfig } from './config.ts';
 
 const FILE_NAME = 'dsh-qqbot-settings.json';
 let cachedPath: string | undefined;
@@ -42,9 +42,11 @@ function normalize(value: unknown, defaults: ImQQBotConfig): ImQQBotConfig {
     ? result.personaPresets.filter((item) => item !== null && typeof item === 'object'
       && typeof item.name === 'string' && typeof item.prompt === 'string')
     : [];
-  result.personaPresets = presets.some((item) => item.name === DEFAULT_PERSONA_PRESET.name)
-    ? presets
-    : [{ ...DEFAULT_PERSONA_PRESET }, ...presets];
+  // Preserve any user edits to built-in names, while adding new built-ins to existing profiles.
+  result.personaPresets = [
+    ...DEFAULT_PERSONA_PRESETS.map((builtin) => presets.find((item) => item.name === builtin.name) ?? { ...builtin }),
+    ...presets.filter((item) => !DEFAULT_PERSONA_PRESETS.some((builtin) => builtin.name === item.name)),
+  ];
   return result;
 }
 

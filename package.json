@@ -1,6 +1,6 @@
 {
   "name": "@yjrqz777/dsh-qqbot-lite",
-  "version": "0.5.0",
+  "version": "1.0.0",
   "description": "QQ Bot IM channel plugin for deepseek-harness (dsh)",
   "type": "module",
   "main": "./dist/index.js",

@@ -42,7 +42,7 @@ export function helpCommand(
         lines.push('**插件内置指令**', '', ...render(qqbotCmds), '');
       }
 
-      lines.push('', `> dsh-qqbot v${PLUGIN_VERSION}`);
+      lines.push('', `> dsh-qqbot-lite v${PLUGIN_VERSION}`);
       await sendMarkdownChunked(cmdCtx, lines.join('\n'), config.textChunkLimit);
       return { kind: 'noop' as const };
     },
