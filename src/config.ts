@@ -164,6 +164,8 @@ export interface ImQQBotConfig {
   personaPresets?: Array<{ name: string; prompt: string }>;
   /** 按 QQ 会话覆盖的人格预设，key 为 appId:scope:peerId */
   personaOverrides?: Record<string, string>;
+  /** 已收到消息的 QQ 会话，供设置页逐会话选择人格 */
+  personaPeers?: Array<{ scope: 'group' | 'c2c'; peerId: string; label: string }>;
   /** 群聊额外 system prompt */
   groupPrompt?: string;
   /** 私聊额外 system prompt */
