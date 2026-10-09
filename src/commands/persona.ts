@@ -61,7 +61,7 @@ export function personaCommand({ manager }: CommandDeps): CategorizedCommand {
     handler: async (cmdCtx) => {
       const { scope, peerId } = getScopePeer(cmdCtx);
       const args = (cmdCtx.command?.raw ?? '').trim();
-      const [action = '', ...restParts] = args.split(/\\s+/);
+      const [action = '', ...restParts] = args.split(/\s+/);
       const value = restParts.join(' ').trim();
 
       if (!args) {
