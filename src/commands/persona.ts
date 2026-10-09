@@ -22,7 +22,7 @@ async function choosePersona(
     return '当前 QQ 选项功能不可用。可以使用 /persona set <名称> 直接切换。';
   }
 
-  const pageSize = 6;
+  const pageSize = 5;
   let page = 0;
   while (true) {
     const entries = presets.slice(page * pageSize, (page + 1) * pageSize);
