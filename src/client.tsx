@@ -101,7 +101,7 @@ const CSS = css`
 .dqb-save { font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 .dqb-save-saved { color: var(--dsw-alias-state-business-primary); }
 .dqb-save-error { color: var(--dsw-alias-state-error-primary); }
-.dqb-meta { margin: 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
+.dqb-meta { margin: 0; font-size: 11px; line-height: 16px; color: var(--dsw-alias-label-tertiary); }
 .dqb-notice { margin: 0; padding: 8px 10px; font-size: 12px; line-height: 18px; border: 0.5px solid var(--dsw-alias-border-l1); border-radius: 8px; color: var(--dsw-alias-label-secondary); }
 .dqb-error { color: var(--dsw-alias-state-error-primary); }
 .dqb-category-tabs { display: flex; flex-wrap: wrap; gap: 0 22px; min-height: 42px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
@@ -121,7 +121,7 @@ const CSS = css`
 .dqb-row { display: flex; align-items: center; gap: 12px; min-height: 28px; }
 .dqb-label { flex: 0 0 168px; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
 .dqb-dirty { color: var(--dsw-alias-state-business-primary); }
-.dqb-input { flex: 1 1 auto; min-width: 0; min-height: 28px; padding: 4px 8px; font: inherit; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-primary, inherit); background: var(--dsw-alias-bg-elevated, rgba(127, 127, 127, 0.14)); border: 1px solid var(--dsw-alias-border-l1); border-radius: 6px; }
+.dqb-input { flex: 1 1 auto; min-width: 0; min-height: 28px; padding: 4px 8px; font: inherit; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-primary, inherit); background: transparent; border: 1px solid var(--dsw-alias-border-l2, rgba(127, 127, 127, 0.5)); border-radius: 6px; }
 .dqb-input:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
 .dqb-input:disabled { opacity: 0.5; }
 .dqb-textarea { min-height: 56px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
@@ -608,6 +608,7 @@ window.__ModuleLoader__.load({
             ? h('div', { className: 'dqb-about' },
               h('p', null, h('strong', null, '插件：'), 'dsh-qqbot-lite'),
               h('p', null, h('strong', null, '版本：'), '1.0.0'),
+              h('p', null, h('strong', null, '作者：'), 'YJRQZ777'),
               h('p', null, '本项目基于腾讯 dsh-qqbot v0.5.0 二次开发。'),
               h('p', null, h('strong', null, '开源协议：'), 'MIT'),
               h('p', null, h('strong', null, '项目地址：'), h('a', { href: 'https://github.com/yjrqz777/dsh-qqbot-lite', target: '_blank', rel: 'noopener noreferrer' }, 'GitHub'))
