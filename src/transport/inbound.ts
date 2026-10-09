@@ -90,6 +90,7 @@ export async function handleInbound(
   manager: SessionManager,
   config: ImQQBotConfig,
   logger: Logger,
+  attachImage?: (image: string) => Promise<ContentBlock>,
 ): Promise<void> {
   const msg = ctx.message as unknown as ProcessedMessage;
   const mwState = ctx.state as MiddlewareState;
@@ -97,6 +98,15 @@ export async function handleInbound(
 
   const scope: ChatScope = msg.kind === 'group' ? 'group' : 'c2c';
   const peerId = scope === 'group' ? (msg.groupOpenid ?? msg.senderId) : msg.senderId;
+  const shortId = peerId.slice(0, 8);
+  const peerLabel = scope === 'group'
+    ? String(msg.groupName ?? msg.group_name ?? `群聊 ${shortId}`)
+    : (msg.senderName?.trim() || `好友 ${shortId}`);
+  try {
+    manager.rememberPersonaPeer(scope, peerId, peerLabel);
+  } catch (error) {
+    logger.warn(`记录 QQ 会话失败: ${error instanceof Error ? error.message : String(error)}`);
+  }
 
   const replyTarget: ReplyTarget = {
     scope,
@@ -104,12 +114,45 @@ export async function handleInbound(
     msgId: msg.messageId,
   };
 
+  // /persona new 的后续名称/提示词由插件消费，不作为普通聊天转发给 Agent。
+  const personaCreationReply = await manager.consumePersonaCreation(scope, peerId, msg.content ?? '');
+  if (personaCreationReply) {
+    try {
+      await bot.sendMarkdown(replyTarget, personaCreationReply);
+    } catch (error) {
+      logger.warn(`发送人格创建提示失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    return;
+  }
+
   // ── 组装 agentBody（下载结果经 mwState.downloadedFiles 提供） ──
-  const agentBody = assembleAgentBody(msg, mwState, scope, logger);
+  let agentBody = assembleAgentBody(msg, mwState, scope, logger);
 
   if (!agentBody) return;
 
-  logger.info(`Processing: scope=${scope} peerId=${peerId} body="${agentBody.slice(0, 200)}"`);
+  // 只把本地路径作为文本发给 Agent 时，模型无法实际读取图片。
+  // 私聊和群聊都附上 dsh 图像块，让会话模型直接获得图片内容。
+  const imageBlocks: ContentBlock[] = [];
+  if (config.vision.enabled && attachImage) {
+    const imagePaths = (mwState.downloadedFiles ?? [])
+      .filter((file) => file.contentType === 'image')
+      .map((file) => file.localPath);
+
+    for (const imagePath of imagePaths) {
+      try {
+        imageBlocks.push(await attachImage(imagePath));
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        logger.warn(`im-qqbot: 图片附加失败: ${reason}`);
+      }
+    }
+
+    if (imageBlocks.length > 0) {
+      agentBody = agentBody.replace(/^([ \t]*)- Image: .*$/gm, '$1- Image attached as visual input');
+    }
+  }
+
+  logger.info(`Processing: scope=${scope} peerId=${peerId} body="${agentBody.slice(0, 200)}" images=${imageBlocks.length}`);
 
   // ── 获取或创建会话 ──
   let record;
@@ -130,7 +173,7 @@ export async function handleInbound(
   }
 
   // ── 构建 UserMessage → followup ──
-  const content: ContentBlock[] = [{ type: 'text' as const, text: agentBody }];
+  const content: ContentBlock[] = [{ type: 'text' as const, text: agentBody }, ...imageBlocks];
 
   const message = createUserMessage({
     content,

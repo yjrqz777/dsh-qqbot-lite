@@ -283,6 +283,27 @@ export class QuestionChannel {
     return true;
   }
 
+  /** 向当前 QQ 对话发送原生单选按钮，并返回用户选择。 */
+  public async chooseFromOptions(
+    scope: ChatScope,
+    peerId: string,
+    question: string,
+    options: string[],
+  ): Promise<string | undefined> {
+    const record = this.manager.getSessionRecord(scope, peerId);
+    const cleanOptions = options.map((option) => option.trim()).filter(Boolean);
+    if (!record || !question.trim() || cleanOptions.length < 2 || cleanOptions.length > 8) return undefined;
+    const result = await this.askViaQQ(record, {
+      questions: [{
+        id: randomUUID(),
+        question: question.trim(),
+        options: cleanOptions.map((label) => ({ label })),
+      }],
+    });
+    const answer = result.answers[0];
+    return answer?.selected[0] ?? answer?.custom;
+  }
+
   /** 按钮点击作答：解码 button_data 选项下标，推进状态机 */
   public handleInteraction(event: InteractionEvent): boolean {
     const peerId = event.group_openid ?? event.user_openid;

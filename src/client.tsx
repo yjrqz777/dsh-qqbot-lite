@@ -81,8 +81,11 @@ const css = (strings: TemplateStringsArray): string => strings.join('');
  * 颜色只在状态点上写死（用户要求的绿点），其余用 --dsw-alias-* 主题 token。
  */
 const CSS = css`
-.dqb-page { display: flex; flex-direction: column; gap: 20px; max-width: 640px; padding: 16px 0; }
-.dqb-toolbar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 10px; padding: 10px 0; background: var(--dsw-alias-bg-base, transparent); border-bottom: 0.5px solid var(--dsw-alias-border-l1); }
+.dqb-page { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 760px; max-height: calc(100vh - 140px); padding: 0 0 24px; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.dqb-page::-webkit-scrollbar, .dqb-page *::-webkit-scrollbar { display: none; }
+.dqb-page * { scrollbar-width: none; }
+.dqb-sticky-header { position: sticky; top: 0; z-index: 10; display: flex; flex-direction: column; background: var(--dsw-alias-bg-base, #fff); }
+.dqb-toolbar { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 0; background: var(--dsw-alias-bg-base, #fff); border-bottom: 0.5px solid var(--dsw-alias-border-l1); }
 .dqb-status { display: flex; align-items: center; gap: 6px; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
 .dqb-dot { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: #8b949e; box-shadow: 0 0 0 3px rgba(139, 148, 158, 0.18); }
 .dqb-dot-connected { background: #2ea043; box-shadow: 0 0 0 3px rgba(46, 160, 67, 0.2); }
@@ -98,18 +101,27 @@ const CSS = css`
 .dqb-save { font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 .dqb-save-saved { color: var(--dsw-alias-state-business-primary); }
 .dqb-save-error { color: var(--dsw-alias-state-error-primary); }
-.dqb-meta { margin: 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
+.dqb-meta { margin: 0; padding: 0; font-size: 11px; line-height: 14px; color: var(--dsw-alias-label-tertiary); }
 .dqb-notice { margin: 0; padding: 8px 10px; font-size: 12px; line-height: 18px; border: 0.5px solid var(--dsw-alias-border-l1); border-radius: 8px; color: var(--dsw-alias-label-secondary); }
 .dqb-error { color: var(--dsw-alias-state-error-primary); }
-.dqb-group { display: flex; flex-direction: column; gap: 8px; }
-.dqb-group-title { margin: 0; font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-primary); }
-.dqb-credential-link { margin-left: 8px; font-weight: 400; color: var(--dsw-alias-state-business-primary); text-decoration: none; }
+.dqb-category-tabs { display: flex; flex-wrap: wrap; gap: 0 22px; min-height: 42px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
+.dqb-category-tab { position: relative; flex: 0 0 auto; padding: 10px 2px 9px; font: inherit; font-size: 13px; color: var(--dsw-alias-label-secondary); background: transparent; border: 0; cursor: pointer; }
+.dqb-category-tab:hover { color: var(--dsw-alias-label-primary); }
+.dqb-category-tab-active { color: var(--dsw-alias-label-primary); font-weight: 600; }
+.dqb-category-tab-active::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: var(--dsw-alias-state-business-primary); content: ''; }
+.dqb-group { display: flex; flex-direction: column; gap: 12px; padding: 4px 0; }
+.dqb-group-title { margin: 0; font-size: 16px; font-weight: 600; color: var(--dsw-alias-label-primary); }
+.dqb-about { display: grid; gap: 12px; max-width: 560px; padding: 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; }
+.dqb-about p { margin: 0; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 20px; }
+.dqb-about a { color: var(--dsw-alias-state-business-primary); text-decoration: none; }
+.dqb-about a:hover { text-decoration: underline; }
+.dqb-credential-link { align-self: flex-start; margin: 0 0 4px; font-weight: 400; color: var(--dsw-alias-state-business-primary); text-decoration: none; }
 .dqb-credential-link:hover { text-decoration: underline; }
 .dqb-field { display: flex; flex-direction: column; gap: 4px; }
 .dqb-row { display: flex; align-items: center; gap: 12px; min-height: 28px; }
 .dqb-label { flex: 0 0 168px; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
 .dqb-dirty { color: var(--dsw-alias-state-business-primary); }
-.dqb-input { flex: 1 1 auto; min-width: 0; min-height: 28px; padding: 4px 8px; font: inherit; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-primary, inherit); background: var(--dsw-alias-bg-elevated, rgba(127, 127, 127, 0.14)); border: 1px solid var(--dsw-alias-border-l1); border-radius: 6px; }
+.dqb-input { flex: 1 1 auto; min-width: 0; min-height: 28px; padding: 4px 8px; font: inherit; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-primary, inherit); background: transparent; border: 1px solid var(--dsw-alias-border-l2, rgba(127, 127, 127, 0.5)); border-radius: 6px; }
 .dqb-input:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
 .dqb-input:disabled { opacity: 0.5; }
 .dqb-textarea { min-height: 56px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
@@ -118,6 +130,12 @@ const CSS = css`
 .dqb-preset-name { max-width: 220px; }
 .dqb-preset-select { max-width: 260px; }
 .dqb-preset-save { white-space: nowrap; }
+.dqb-persona-peers { display: grid; gap: 10px; margin-top: 20px; }
+.dqb-persona-peers-title { margin: 0; font-size: 14px; }
+.dqb-persona-peer { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--dsw-alias-border-l1); }
+.dqb-persona-peer-info { display: flex; flex: 1 1 auto; min-width: 0; flex-direction: column; gap: 3px; }
+.dqb-persona-peer-info small { overflow-wrap: anywhere; color: var(--dsw-alias-label-tertiary); }
+.dqb-persona-peer-select { max-width: 240px; }
 .dqb-check { flex: 0 0 auto; width: 16px; height: 16px; }
 .dqb-hint { margin: 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 `;
@@ -134,20 +152,16 @@ interface FieldSpec {
 interface FieldGroup {
   readonly title: string;
   readonly fields: FieldSpec[];
+  readonly about?: boolean;
 }
 
 /** 页面字段清单（与 src/config.ts 的 volatile 字段一一对应）。 */
 const GROUPS: FieldGroup[] = [
   {
-    title: '凭据',
+    title: '凭据与会话',
     fields: [
       { path: ['appId'], label: 'AppID', kind: 'text', hint: 'QQ Bot 的数字 AppID。' },
       { path: ['appSecret'], label: 'AppSecret', kind: 'text', hint: '明文保存并回显；填错会导致连不上。' },
-    ],
-  },
-  {
-    title: '模型与会话',
-    fields: [
       { path: ['provider'], label: 'LLM provider', kind: 'text', hint: '留空表示继承宿主默认模型路由。' },
       { path: ['model'], label: '模型', kind: 'text' },
       { path: ['preset'], label: 'Agent preset', kind: 'text' },
@@ -170,16 +184,11 @@ const GROUPS: FieldGroup[] = [
     ],
   },
   {
-    title: '触发与提示词',
+    title: '触发与访问控制',
     fields: [
       { path: ['requireMention'], label: '群聊需 @bot', kind: 'boolean' },
       { path: ['groupPrompt'], label: '群聊额外 prompt', kind: 'text' },
       { path: ['directPrompt'], label: '私聊额外 prompt', kind: 'text' },
-    ],
-  },
-  {
-    title: '访问控制',
-    fields: [
       { path: ['access', 'c2cMode'], label: '私聊模式', kind: 'select', options: ['open', 'allowlist', 'disabled'] },
       { path: ['access', 'c2cAllow'], label: '私聊白名单', kind: 'list', hint: 'user openid，逗号或换行分隔。' },
       { path: ['access', 'groupMode'], label: '群聊模式', kind: 'select', options: ['open', 'allowlist', 'disabled'] },
@@ -187,16 +196,11 @@ const GROUPS: FieldGroup[] = [
     ],
   },
   {
-    title: '富媒体理解',
+    title: '媒体理解',
     fields: [
       { path: ['media', 'enabled'], label: '启用富媒体', kind: 'boolean' },
       { path: ['media', 'maxMB'], label: '下载上限（MB）', kind: 'number' },
       { path: ['media', 'ttlHours'], label: '存活时长（小时）', kind: 'number', hint: '0 表示永不过期。' },
-    ],
-  },
-  {
-    title: '视觉理解',
-    fields: [
       { path: ['vision', 'enabled'], label: '启用视觉理解', kind: 'boolean' },
       { path: ['vision', 'provider'], label: '视觉 provider', kind: 'text' },
       { path: ['vision', 'model'], label: '视觉模型', kind: 'text' },
@@ -212,6 +216,11 @@ const GROUPS: FieldGroup[] = [
       { path: ['sendFile', 'restrictPaths'], label: '启用路径白名单', kind: 'boolean' },
       { path: ['sendFile', 'extraRoots'], label: '额外根目录', kind: 'list', hint: '每行一个绝对路径。' },
     ],
+  },
+  {
+    title: '关于',
+    fields: [],
+    about: true,
   },
 ];
 
@@ -372,6 +381,7 @@ window.__ModuleLoader__.load({
       const [selectedPreset, setSelectedPreset] = React.useState('自定义');
       const [presetName, setPresetName] = React.useState('');
       const [connectionBusy, setConnectionBusy] = React.useState(false);
+      const [selectedGroup, setSelectedGroup] = React.useState(GROUPS[0]?.title ?? '');
 
       React.useEffect(() => {
         let alive = true;
@@ -471,6 +481,49 @@ window.__ModuleLoader__.load({
         h('input', { className: 'dqb-input dqb-preset-name', type: 'text', value: presetName, placeholder: '预设名称', disabled: snapshot.status !== 'ready' || snapshot.writable !== true, onChange: (event: any) => setPresetName(event.target.value) }),
         h('button', { className: 'dqb-button dqb-preset-save', type: 'button', disabled: saving || snapshot.status !== 'ready' || snapshot.writable !== true, onClick: () => { void onSavePreset(); } }, '保存预设'));
 
+      const personaPeers = Array.isArray(snapshot.value.personaPeers) ? snapshot.value.personaPeers : [];
+      const personaOverrides = snapshot.value.personaOverrides !== null && typeof snapshot.value.personaOverrides === 'object'
+        ? snapshot.value.personaOverrides
+        : {};
+      const peerPersonaKey = (peer: any): string => `${snapshot.value.appId}:${peer.scope}:${peer.peerId}`;
+      const onPeerPersonaChange = async (peer: any, name: string): Promise<void> => {
+        const next = JSON.parse(JSON.stringify(snapshot.value));
+        const overrides = { ...(next.personaOverrides ?? {}) };
+        const key = peerPersonaKey(peer);
+        if (name === '') delete overrides[key];
+        else overrides[key] = name;
+        next.personaOverrides = overrides;
+        setSaveState({ status: 'saving', message: '保存会话人格…' });
+        try {
+          const saved = await persistSettings(next);
+          setSnapshot({ ...snapshot, status: 'ready', value: saved, writable: true, error: null });
+          setSaveState({ status: 'saved', message: '会话人格已保存' });
+        } catch (error: unknown) {
+          setSaveState({ status: 'error', message: error instanceof Error ? error.message : String(error) });
+        }
+      };
+      const personaPeerTools = h('div', { className: 'dqb-persona-peers' },
+        h('h4', { className: 'dqb-persona-peers-title' }, '按群或好友设置人格'),
+        h('p', { className: 'dqb-hint' }, '这里只显示机器人已经收到过消息的会话。新群或好友发消息后会自动出现在列表中。'),
+        personaPeers.length === 0
+          ? h('p', { className: 'dqb-notice' }, '暂无会话记录')
+          : personaPeers.map((peer: any) => h('div', {
+            className: 'dqb-persona-peer',
+            key: `${peer.scope}:${peer.peerId}`,
+          },
+            h('div', { className: 'dqb-persona-peer-info' },
+              h('strong', null, peer.label),
+              h('small', null, `${peer.scope === 'group' ? '群聊' : '好友'} · ${peer.peerId}`)),
+            h('select', {
+              className: 'dqb-input dqb-persona-peer-select',
+              value: personaOverrides[peerPersonaKey(peer)] ?? '',
+              disabled: saving || snapshot.status !== 'ready' || snapshot.writable !== true,
+              onChange: (event: any) => { void onPeerPersonaChange(peer, event.target.value); },
+            }, [
+              h('option', { key: 'default', value: '' }, '跟随默认人格'),
+              ...personaPresets.map((preset: any) => h('option', { key: preset.name, value: preset.name }, preset.name)),
+            ]))));
+
       /** 把所有草稿合成一次 mutate；任一项不合法就整体不提交。 */
       const onSave = async (): Promise<void> => {
         const ops: any[] = [];
@@ -528,21 +581,40 @@ window.__ModuleLoader__.load({
           onClick: () => { void onSave(); },
         }, saving ? '保存中…' : (dirtyKeys.length === 0 ? '保存' : `保存 (${dirtyKeys.length})`)));
 
-      const body = snapshot.status !== 'ready'
+      const activeGroup = GROUPS.find(group => group.title === selectedGroup) ?? GROUPS[0];
+      const categoryTabs = h('nav', { className: 'dqb-category-tabs', 'aria-label': 'QQ Bot 设置分类' },
+        GROUPS.map(group => h('button', {
+          className: group.title === activeGroup.title ? 'dqb-category-tab dqb-category-tab-active' : 'dqb-category-tab',
+          type: 'button',
+          key: group.title,
+          'aria-current': group.title === activeGroup.title ? 'page' : undefined,
+          onClick: () => setSelectedGroup(group.title),
+        }, group.title)));
+
+      const body = snapshot.status !== 'ready' || activeGroup === undefined
         ? null
-        : GROUPS.map(group => h('section', { className: 'dqb-group', key: group.title },
-          h('h3', { className: 'dqb-group-title' },
-             group.title,
-             group.title === '凭据'
-               ? h('a', {
-                 className: 'dqb-credential-link',
-                 href: 'https://q.qq.com/qqbot/openclaw/login.html',
-                 target: '_blank',
-                 rel: 'noopener noreferrer',
-               }, '获取凭据')
-               : null),
-          group.title === '人格配置' ? personaTools : null,
-          group.fields.map(field => renderField(field, snapshot, drafts, setDraft, () => setSelectedPreset('自定义')))));
+        : h('section', { className: 'dqb-group', key: activeGroup.title },
+          activeGroup.title === '凭据与会话'
+            ? h('a', {
+              className: 'dqb-credential-link',
+              href: 'https://q.qq.com/qqbot/openclaw/login.html',
+              target: '_blank',
+              rel: 'noopener noreferrer',
+            }, '获取凭据')
+            : null,
+          activeGroup.about
+            ? h('div', { className: 'dqb-about' },
+              h('p', null, h('strong', null, '插件：'), 'dsh-qqbot-lite'),
+              h('p', null, h('strong', null, '版本：'), '1.0.0'),
+              h('p', null, h('strong', null, '作者：'), h('a', { href: 'https://github.com/yjrqz777', target: '_blank', rel: 'noopener noreferrer' }, 'YJRQZ777')),
+              h('p', null, '本项目基于腾讯 dsh-qqbot v0.5.0 二次开发。'),
+              h('p', null, h('strong', null, '开源协议：'), 'MIT'),
+              h('p', null, h('strong', null, '项目地址：'), h('a', { href: 'https://github.com/yjrqz777/dsh-qqbot-lite', target: '_blank', rel: 'noopener noreferrer' }, 'GitHub'))
+            )
+            : null,
+          activeGroup.title === '人格配置' ? personaTools : null,
+          activeGroup.fields.map(field => renderField(field, snapshot, drafts, setDraft, () => setSelectedPreset('自定义'))),
+          activeGroup.title === '人格配置' ? personaPeerTools : null);
 
       const notice = snapshot.status === 'loading'
         ? h('p', { className: 'dqb-notice' }, '正在读取配置…')
@@ -559,7 +631,9 @@ window.__ModuleLoader__.load({
 
       return h('div', { className: 'dqb-page' },
         h('style', null, CSS),
-        toolbar,
+        h('div', { className: 'dqb-sticky-header' },
+          toolbar,
+          categoryTabs),
         h('p', { className: 'dqb-meta' }, '全部 QQ Bot 配置保存在 profile 目录下的 dsh-qqbot-settings.json。'),
         runtimeError,
         notice,

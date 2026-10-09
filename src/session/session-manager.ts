@@ -16,7 +16,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { SessionId } from '@deepseek-ai/dsh-session';
 import type { Context } from '@deepseek-ai/cordis';
 import type { ChatScope, Logger, ReplyTarget } from '../types.ts';
-import type { ImQQBotConfig } from '../config.ts';
+import { TUDOU_PERSONA_PRESET, type ImQQBotConfig } from '../config.ts';
+import { savePluginSettings } from '../settings-store.ts';
 import { ModelResolver } from '../model/model-resolver.ts';
 import type { ModelRoute, ModelEntry } from '../model/types.ts';
 import { IdleEvictor } from './idle-evictor.ts';
@@ -76,6 +77,12 @@ export class SessionManager {
   private readonly logger: Logger;
   /** 已注入人格提示词的会话 ID，避免首轮中重复组装时重复追加。 */
   private readonly personaInjectedAgents = new WeakSet<DshAgent>();
+  /** 最近一次注入的提示词，用于发现设置页修改并在下一轮重新注入。 */
+  private readonly personaPromptByAgent = new WeakMap<DshAgent, string>();
+  /** 人格切换后，在该会话下一轮重新注入一次提示词。 */
+  private readonly personaReapplyAgents = new WeakSet<DshAgent>();
+  /** /persona new 两阶段输入状态，按 QQ 对话隔离。 */
+  private readonly personaDrafts = new Map<string, { stage: 'name' | 'prompt'; name?: string }>();
   /** 由 bootstrap 注入的问答通道（ask_user_question → QQ），会话回收时清理其待答问题 */
   public questionChannel?: QuestionChannel;
   /** 由 bootstrap 注入的审批通道（approval/request → QQ），会话回收时清理其待批审批 */
@@ -88,6 +95,7 @@ export class SessionManager {
     logger: Logger,
     /** 功能级错误上报（预设挂载失败、会话创建失败），用于设置页状态区展示。 */
     private readonly onError?: (message: string) => void,
+    private readonly profileDir?: string,
   ) {
     this.ctx = ctx;
     this.agents = agents;
@@ -131,14 +139,19 @@ export class SessionManager {
       const record = this.findByAgent(context.agent);
       if (!record) return assembled;
 
-      const personaPrompt = (this.config.personaPrompt ?? '').trim();
+      const personaPrompt = this.getPersonaPrompt(record.scope, record.peerId);
       const priorAssistantTurn = context.agent.session.events?.some((event: any) => event.type === 'assistant/message') === true;
       const firstConversationTurn = !priorAssistantTurn && !this.personaInjectedAgents.has(context.agent);
+      const previousPersonaPrompt = this.personaPromptByAgent.get(context.agent);
+      const promptChanged = previousPersonaPrompt !== undefined && previousPersonaPrompt !== personaPrompt;
+      const shouldReapplyPersona = this.personaReapplyAgents.has(context.agent) || promptChanged;
       const scopePrompt = record.scope === 'group' ? this.config.groupPrompt : this.config.directPrompt;
       const additions: PromptSection[] = [];
-      if (personaPrompt && firstConversationTurn) {
+      if (personaPrompt && (firstConversationTurn || shouldReapplyPersona)) {
         additions.push({ name: 'qqbot:persona-prompt', order: 89, text: personaPrompt });
         this.personaInjectedAgents.add(context.agent);
+        this.personaPromptByAgent.set(context.agent, personaPrompt);
+        this.personaReapplyAgents.delete(context.agent);
       }
       if (scopePrompt) additions.push({ name: 'qqbot:scope-prompt', order: 90, text: scopePrompt });
       if (additions.length === 0) return assembled;
@@ -196,6 +209,117 @@ export class SessionManager {
     }
   }
 
+  private personaKey(scope: ChatScope, peerId: string): string {
+    return `${this.config.appId}:${scope}:${peerId}`;
+  }
+
+  /** 当前对话生效的人格名称；未单独设置时使用全局默认人格。 */
+  getEffectivePersonaName(scope: ChatScope, peerId: string): string {
+    const override = this.config.personaOverrides?.[this.personaKey(scope, peerId)];
+    if (override) return override;
+    const prompt = (this.config.personaPrompt ?? '').trim() || TUDOU_PERSONA_PRESET.prompt;
+    return this.listPersonaPresets().find((preset) => preset.prompt === prompt)?.name ?? '默认（土豆小猫）';
+  }
+
+  listPersonaPresets(): Array<{ name: string; prompt: string }> {
+    return (this.config.personaPresets ?? []).map(({ name, prompt }) => ({ name, prompt }));
+  }
+
+  private getPersonaPrompt(scope: ChatScope, peerId: string): string {
+    const override = this.config.personaOverrides?.[this.personaKey(scope, peerId)];
+    if (override) {
+      const selected = this.config.personaPresets?.find((preset) => preset.name === override);
+      if (selected) return selected.prompt.trim();
+    }
+    return (this.config.personaPrompt ?? '').trim() || TUDOU_PERSONA_PRESET.prompt;
+  }
+
+  private persistPersonaSettings(): void {
+    savePluginSettings({
+      ...this.config,
+      personaPresets: [...(this.config.personaPresets ?? [])],
+      personaOverrides: { ...(this.config.personaOverrides ?? {}) },
+    }, this.config, this.profileDir);
+  }
+
+  /** 记录机器人已收到消息的群/好友，用于设置页逐会话配置。 */
+  rememberPersonaPeer(scope: ChatScope, peerId: string, label: string): void {
+    const peers = this.config.personaPeers ?? [];
+    const existing = peers.find((peer) => peer.scope === scope && peer.peerId === peerId);
+    if (existing) {
+      if (existing.label === label) return;
+      existing.label = label;
+    } else {
+      peers.push({ scope, peerId, label });
+    }
+    this.config.personaPeers = peers;
+    this.persistPersonaSettings();
+  }
+
+  /** 创建预设并应用到当前会话。保存预设不会重连机器人。 */
+  createPersonaPreset(scope: ChatScope, peerId: string, name: string, prompt: string): boolean {
+    const cleanName = name.trim();
+    const cleanPrompt = prompt.trim();
+    if (!cleanName || !cleanPrompt || this.config.personaPresets?.some((preset) => preset.name === cleanName)) {
+      return false;
+    }
+    this.config.personaPresets ??= [];
+    this.config.personaPresets.push({ name: cleanName, prompt: cleanPrompt });
+    const overrides = this.config.personaOverrides ?? {};
+    overrides[this.personaKey(scope, peerId)] = cleanName;
+    this.config.personaOverrides = overrides;
+    this.persistPersonaSettings();
+    const active = this.sessions.get(this.sessionKey(scope, peerId));
+    if (active) this.personaReapplyAgents.add(active.agent);
+    return true;
+  }
+
+  /** 将人格应用到指定 QQ 对话；活动会话的下一轮重新注入提示词。 */
+  setPersonaOverride(scope: ChatScope, peerId: string, name: string): boolean {
+    if (!this.config.personaPresets?.some((preset) => preset.name === name)) return false;
+    const overrides = this.config.personaOverrides ?? {};
+    overrides[this.personaKey(scope, peerId)] = name;
+    this.config.personaOverrides = overrides;
+    this.persistPersonaSettings();
+    const active = this.sessions.get(this.sessionKey(scope, peerId));
+    if (active) this.personaReapplyAgents.add(active.agent);
+    return true;
+  }
+
+  /** 清除当前对话的人格覆盖，回到默认人格；下一轮重新注入默认提示词。 */
+  clearPersonaOverride(scope: ChatScope, peerId: string): void {
+    const overrides = this.config.personaOverrides ?? {};
+    delete overrides[this.personaKey(scope, peerId)];
+    this.config.personaOverrides = overrides;
+    this.persistPersonaSettings();
+    const active = this.sessions.get(this.sessionKey(scope, peerId));
+    if (active) this.personaReapplyAgents.add(active.agent);
+  }
+
+  startPersonaCreation(scope: ChatScope, peerId: string): void {
+    this.personaDrafts.set(this.sessionKey(scope, peerId), { stage: 'name' });
+  }
+
+  cancelPersonaCreation(scope: ChatScope, peerId: string): boolean {
+    return this.personaDrafts.delete(this.sessionKey(scope, peerId));
+  }
+
+  /** 消费 /persona new 后的名称和提示词两条文本，不转发给 Agent。 */
+  async consumePersonaCreation(scope: ChatScope, peerId: string, text: string): Promise<string | undefined> {
+    const key = this.sessionKey(scope, peerId);
+    const draft = this.personaDrafts.get(key);
+    const value = text.trim();
+    if (!draft || !value || value.startsWith('/')) return undefined;
+    if (draft.stage === 'name') {
+      if (value.length > 80) return '人格名称请控制在 80 个字符以内，请重新发送名称，或发送 /persona cancel 取消。';
+      this.personaDrafts.set(key, { stage: 'prompt', name: value });
+      return '收到名称。请发送这套人格的提示词；发送 /persona cancel 可取消。';
+    }
+    this.personaDrafts.delete(key);
+    const created = this.createPersonaPreset(scope, peerId, draft.name ?? '', value);
+    if (!created) return '创建失败：名称或提示词为空，或该人格名称已存在。请重新执行 /persona new。';
+    return `✅ 已创建并应用人格「${draft.name}」。新提示词会在当前会话下一轮注入。`;
+  }
   // ── 模型相关（委托给 ModelResolver） ──
 
   getEffectiveModel(scope: ChatScope, peerId: string): ModelRoute | undefined {

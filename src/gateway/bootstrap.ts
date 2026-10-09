@@ -22,7 +22,7 @@ import type { ImQQBotConfig } from '../config.ts';
 import type { ChatScope, Logger } from '../types.ts';
 import { setupMiddlewares } from './middleware-setup.ts';
 import { startMediaCleanup } from '../media/media-cleaner.ts';
-import { ensureVisionInputModal, registerDescribeImageTool } from '../media/vision-tool.ts';
+import { createImageBlockFromPath, ensureVisionInputModal, registerDescribeImageTool } from '../media/vision-tool.ts';
 import { registerSendFileTool, type MediaSenderLike } from '../media/send-file-tool.ts';
 
 /**
@@ -57,8 +57,9 @@ export async function bootstrapGateway(
   report?: GatewayStateReporter,
   /** 功能级错误上报（预设挂载失败、会话创建失败），供设置页状态区展示。 */
   onError?: (message: string) => void,
+  profileDir?: string,
 ): Promise<void> {
-  const manager = new SessionManager(ctx, agents, config, logger, onError);
+  const manager = new SessionManager(ctx, agents, config, logger, onError, profileDir);
 
   /** 回报状态；回调异常一律吞掉，状态点的问题不许影响网关。 */
   const notify = (state: 'starting' | 'connected' | 'error' | 'stopped', error?: string): void => {
@@ -95,7 +96,12 @@ export async function bootstrapGateway(
     if (config.debug) {
       logger.debug(`← message (post-middleware): ${JSON.stringify(msg, null, 2).slice(0, 500)}`);
     }
-    await handleInbound(mCtx, manager, config, logger);
+    await handleInbound(mCtx, manager, config, logger, config.vision.enabled
+      ? (image) => createImageBlockFromPath(
+        ctx, image, config.vision.maxBytes,
+        AbortSignal.timeout(Math.max(1, config.vision.timeoutMs)),
+      )
+      : undefined);
   });
 
   // ── 出站：dsh session/event → QQ 消息 ──
