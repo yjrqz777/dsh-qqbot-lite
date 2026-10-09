@@ -84,7 +84,15 @@ async function loadImageBytes(
 ): Promise<{ data: Uint8Array; mediaType: ImageMediaType }> {
   let data: Uint8Array;
   if (/^https?:\/\//i.test(image)) {
-    const resp = await fetch(image, { signal, redirect: 'error' });
+    const sourceUrl = new URL(image);
+    const isQqMediaUrl = sourceUrl.protocol === 'https:' && sourceUrl.hostname === 'multimedia.nt.qq.com.cn';
+    const resp = await fetch(image, { signal, redirect: isQqMediaUrl ? 'follow' : 'error' });
+    if (isQqMediaUrl) {
+      const finalHost = new URL(resp.url).hostname;
+      if (finalHost !== 'qq.com.cn' && !finalHost.endsWith('.qq.com.cn')) {
+        throw new Error('qqbot_describe_image: QQ attachment redirected outside qq.com.cn');
+      }
+    }
     if (!resp.ok) throw new Error(`qqbot_describe_image: download failed (HTTP ${resp.status})`);
     const buf = Buffer.from(await resp.arrayBuffer());
     if (buf.length > maxBytes) throw new Error(`qqbot_describe_image: image too large (${buf.length} bytes)`);
