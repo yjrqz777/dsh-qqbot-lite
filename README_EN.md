@@ -245,4 +245,4 @@ npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot-lite/cordis.dev.yml
 
 The software code in this project is licensed under MIT; see [LICENSE](./LICENSE). This project is derived from Tencent Connect's dsh-qqbot v0.5.0, and retains the upstream MIT copyright notice.
 
-**The Suqing persona preset is not covered by this project's MIT license.** Before using, copying, or redistributing it, review and follow the original author's license and attribution requirements. The author's name and source link have not been provided with this project; this notice does not replace the author's specific terms.
+**The Suqing persona preset is not covered by this project's MIT license.** It is authored by [yjrqz777](https://github.com/yjrqz777). When using, copying, or redistributing the preset, retain the attribution “Author: yjrqz777” and link to the author's GitHub profile. Follow any additional terms published by the author.
