@@ -118,6 +118,12 @@ const CSS = css`
 .dqb-preset-name { max-width: 220px; }
 .dqb-preset-select { max-width: 260px; }
 .dqb-preset-save { white-space: nowrap; }
+.dqb-persona-peers { display: grid; gap: 10px; margin-top: 20px; }
+.dqb-persona-peers-title { margin: 0; font-size: 14px; }
+.dqb-persona-peer { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--dsw-alias-border-l1); }
+.dqb-persona-peer-info { display: flex; flex: 1 1 auto; min-width: 0; flex-direction: column; gap: 3px; }
+.dqb-persona-peer-info small { overflow-wrap: anywhere; color: var(--dsw-alias-label-tertiary); }
+.dqb-persona-peer-select { max-width: 240px; }
 .dqb-check { flex: 0 0 auto; width: 16px; height: 16px; }
 .dqb-hint { margin: 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 `;
