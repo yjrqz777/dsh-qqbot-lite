@@ -62,7 +62,7 @@ type CreateElement = (type: any, props?: any, ...children: any[]) => any;
 const NS = 'im-qqbot';
 
 /** 设置导航里的排序位置。 */
-const ORDER = 90;
+const ORDER = 77;
 
 /** 宿主半注册的连接状态路由（文档相对路径，与 src/index.ts 的常量对应）。 */
 const STATUS_ROUTE = '/api/dsh-qqbot/status';
