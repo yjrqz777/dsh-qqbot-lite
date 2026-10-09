@@ -57,8 +57,9 @@ export async function bootstrapGateway(
   report?: GatewayStateReporter,
   /** 功能级错误上报（预设挂载失败、会话创建失败），供设置页状态区展示。 */
   onError?: (message: string) => void,
+  profileDir?: string,
 ): Promise<void> {
-  const manager = new SessionManager(ctx, agents, config, logger, onError);
+  const manager = new SessionManager(ctx, agents, config, logger, onError, profileDir);
 
   /** 回报状态；回调异常一律吞掉，状态点的问题不许影响网关。 */
   const notify = (state: 'starting' | 'connected' | 'error' | 'stopped', error?: string): void => {
