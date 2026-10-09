@@ -113,15 +113,17 @@ Desktop 模式下无需设置 `QQBOT_APPID` 和 `QQBOT_SECRET` 环境变量；�
 
 | 配置 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `media.enabled` | boolean | `true` | 启用富媒体理解（图片/视频下载 + 工具分析） |
+| `media.enabled` | boolean | `true` | 启用 QQ 附件下载（图片/视频/文件） |
 | `media.maxMB` | number | `200` | 下载大小上限 (MB) |
 | `media.ttlHours` | number | `24` | 媒体存活时长 (小时)，0 = 永不过期 |
-| `vision.enabled` | boolean | `false` | 启用视觉理解（`qqbot_describe_image`） |
+| `vision.enabled` | boolean | `false` | 启用视觉理解；私聊和群聊图片会作为图像内容传入 DSH 对话，并注册 `qqbot_describe_image` 工具 |
 | `vision.provider` | string | - | 视觉模型 provider |
 | `vision.model` | string | - | 视觉模型 id |
 | `vision.maxBytes` | number | `10MB` | 图片字节上限 |
 | `vision.maxTokens` | number | `1024` | 输出 token 上限 |
 | `vision.timeoutMs` | number | `120000` | 视觉调用超时 (ms) |
+
+开启 `media.enabled` 和 `vision.enabled` 后，QQ 私聊与群聊中的图片会直接作为图像内容发送给 DSH 会话，不再只提供本地文件路径。会话使用的模型需要支持图片输入。`vision.provider` 和 `vision.model` 是 `qqbot_describe_image` 工具所用的视觉模型配置。
 
 ### sendFile（附件发送）
 
