@@ -389,7 +389,12 @@ export class QuestionChannel {
           await this.sender.sendMarkdown(record.replyTarget, formatQuestion(question, hint, true), { keyboard });
           return;
         } catch (err) {
-          this.logger.warn(`im-qqbot: keyboard send failed, fallback to text: ${err instanceof Error ? err.message : String(err)}`);
+          const detail = (err instanceof Error ? err.message : String(err)).replace(/\\s+/g, ' ').slice(0, 240);
+          this.logger.warn(`im-qqbot: keyboard send failed, fallback to text: ${detail}`);
+          const fallback = formatQuestion(question, hint, false)
+            + `\\n\\n> ⚠️ 按钮发送失败，已切换为文字选项。原因：${detail || '未知错误'}`;
+          await this.sender.sendMarkdown(record.replyTarget, fallback);
+          return;
         }
       }
       await this.sender.sendMarkdown(record.replyTarget, formatQuestion(question, hint, false));
