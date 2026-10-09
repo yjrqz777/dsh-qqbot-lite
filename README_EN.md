@@ -161,9 +161,9 @@ All QQ Bot settings, including AppID, AppSecret, model, access control, persona 
 
 ## Interactive questions (buttons)
 
-The plugin registers a model-callable `qqbot_ask_user` tool. When a user decision or clarification is needed, the model can call it to send single-choice buttons. The user can click an option or reply with text; the answer is returned to the model. It accepts one question and 2–8 options.
+QQ conversations can collect single-choice answers through clickable buttons; users can also reply with a number or text. The model can start a question from a natural-language request, so users do not need to mention an internal tool name. For example: “What should I have for lunch? Give me a few clickable options.”
 
-To test it, ask the bot: `Use qqbot_ask_user to ask what I want for lunch, with noodles, rice, and either as options.` No host `ask_user_question` tool is required.
+The interactive question tool accepts one question and 2–8 options. After the user clicks a button or replies with text, the answer is returned to the model. If QQ rejects a keyboard message, the plugin falls back to text options and includes the API error reason in the message.
 
 ## Built-in Commands
 
