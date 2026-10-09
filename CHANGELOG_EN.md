@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- **Per-conversation personas**: default to Potato Cat, list or create presets with `/persona list` and `/persona new`, and select a persona per group or direct chat. Switching reinjects the prompt on the next turn without reconnecting the bot.
 - **Interactive question tool**: the model can send clickable single-choice buttons in QQ conversations. Users can click an option or reply with a number or text. Natural-language requests work without mentioning the internal tool name.
 
 ### Fixed
