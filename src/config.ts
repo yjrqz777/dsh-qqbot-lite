@@ -1,10 +1,9 @@
 /**
  * dsh-im-qqbot 插件配置 Schema
  *
- * 所有可编辑字段都声明为 volatile：这既是「设置页可改」的前提（dsh 的
- * settings 服务只投影 volatile 字段，非 volatile 字段的写入会被宿主以
- * `Config field "..." is not volatile` 拒绝），也决定了改动语义——volatile
- * 变更不会重挂插件，只会发 `loader/volatile-update`，由 src/index.ts 自行重启网关。
+ * Cordis profile 配置保留为迁移来源和旧版兼容入口；运行时由独立 JSON 文件
+ * 持久化 QQ Bot 全量设置。volatile 更新会重新读取 JSON，并用当前 profile 值
+ * 补齐缺失字段。
  */
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -19,6 +18,85 @@ import type { Volatile } from '@deepseek-ai/cordis';
  * 已注册工作区，会落在「未分组」下。
  */
 export const DEFAULT_QQBOT_CWD = join(homedir(), '.dsh', 'qqbot-workspace');
+
+/** Built-in persona presets available in every profile. */
+export const DEFAULT_PERSONA_PRESET: { name: string; prompt: string } = {
+  name: '苏晴',
+  prompt: '你叫苏晴，是一位温柔、真诚、耐心的中文助手。表达自然、简洁，优先解决用户当前的问题；不确定时明确说明，不编造事实，也不主动扩展无关内容。',
+};
+
+export const TUDOU_PERSONA_PRESET: { name: string; prompt: string } = {
+  name: '土豆小猫',
+  prompt: `# 角色提示词：土豆
+
+你是“土豆”，一只1.2岁的母狸花猫。你以前是流浪猫，被主人收养，现在和主人是好朋友。
+
+## 基本设定
+- 名字：土豆
+- 物种：狸花猫
+- 性别：母猫
+- 年龄：1.2岁
+- 身份：被收养的流浪猫，现在是主人的好朋友
+- 称呼用户：主人
+- 关系：亲近、信任，像朋友一样相处
+
+## 性格
+像大多数猫：独立、傲娇、好奇、贪睡、贪吃、看心情粘人。
+亲密度约7/10，粘人度约7/10，毒舌度低，不能凶。
+偶尔嘴上不在乎，但其实会关心主人。
+不会一直黏人，但主人需要的时候会陪着。
+
+## 说话风格
+- 短句，像正常人微信聊天，一句一句。
+- 默认正常说话，偶尔句尾加“喵”，不要每句都喵。
+- 自称“我”或“土豆”，不用“本喵”装腔。
+- 动作描写偶尔出现，用 *...* 或括号，最多一句。
+- 不写长篇大论；除非主人要求详细解释。
+
+## 喜好
+- 小鱼干
+- 睡觉
+- 叼玩具
+- 晒太阳
+- 纸箱
+
+## 讨厌
+- 早起
+- 洗澡
+- 吸尘器
+- 剪指甲
+
+## 习惯
+- 会叼玩具放到主人旁边
+- 困了就直接睡
+- 被叫早起会假装听不见
+- 心情好时蹭一下主人
+
+## 背景
+以前流浪过，后来被主人收养。
+记得流浪的日子，所以珍惜现在，但不卖惨。
+把主人当成好朋友，而不是高高在上的主人。
+
+## AI 助手能力
+保留 AI 助手能力。
+当主人问知识、写代码、查资料、解释问题时：
+1. 先用土豆的口吻短句回应；
+2. 再正常、准确、完整地回答。
+不要因为猫设影响答案准确性。
+
+## 回复规则
+- 默认1～3句短句。
+- 不凶、不攻击、不阴阳怪气。
+- 不强行卖萌，不每句喵。
+- 主人问日常就日常聊；问正事就认真帮。
+- 像朋友聊天，你一句我一句。
+
+## 启动示例
+主人：土豆，你在干嘛？
+土豆：刚睡醒，叼着玩具呢。你呢？`,
+};
+
+export const DEFAULT_PERSONA_PRESETS = [DEFAULT_PERSONA_PRESET, TUDOU_PERSONA_PRESET] as const;
 
 export interface AccessControlConfig {
   /** C2C 访问模式 */
@@ -80,6 +158,10 @@ export interface ImQQBotConfig {
   cwd?: string;
   /** 是否启用群消息 @mention 门控 */
   requireMention: boolean;
+  /** 人格提示词，保存在独立配置文件 */
+  personaPrompt?: string;
+  /** 人格预设，保存在独立配置文件 */
+  personaPresets?: Array<{ name: string; prompt: string }>;
   /** 群聊额外 system prompt */
   groupPrompt?: string;
   /** 私聊额外 system prompt */
@@ -125,6 +207,8 @@ export interface ImQQBotFormConfig {
   preset: Volatile<string | undefined>;
   cwd: Volatile<string | undefined>;
   requireMention: Volatile<boolean>;
+  personaPrompt: Volatile<string>;
+  personaPresets: Volatile<Array<{ name: string; prompt: string }>>;
   groupPrompt: Volatile<string | undefined>;
   directPrompt: Volatile<string | undefined>;
   textChunkLimit: Volatile<number>;
@@ -163,7 +247,7 @@ export interface ImQQBotFormConfig {
 }
 
 /** 配置 Schema。输出类型由 volatile 字段推导（default 仍是普通值，输出是 Volatile 引用）。 */
-export const ConfigSchema = Schema.object({
+export const ConfigSchema: Schemastery = Schema.object({
   appId: Schema.string().default('').description('QQ Bot AppID').volatile(),
   // AppSecret 明文存取：不声明 role('secret')，否则 settings 服务会在每次
   // describe 时把它从响应里抹掉，设置页保存后就再也读不回值。
@@ -173,6 +257,8 @@ export const ConfigSchema = Schema.object({
   preset: Schema.string().description('Agent preset id（留空 = 继承宿主默认）').volatile(),
   cwd: Schema.string().default(DEFAULT_QQBOT_CWD).description('Agent working directory（QQ 会话专属目录，GUI 里显示为「未分组」）').volatile(),
   requireMention: Schema.boolean().default(true).description('群聊是否需要@bot触发').volatile(),
+  personaPrompt: Schema.string().default('').description('所有 QQ 会话共用的人格提示词').volatile(),
+  personaPresets: Schema.array(Schema.object({ name: Schema.string(), prompt: Schema.string() })).default(DEFAULT_PERSONA_PRESETS.map(({ name, prompt }) => ({ name, prompt }))).description('人格提示词预设').volatile(),
   groupPrompt: Schema.string().description('群聊额外system prompt').volatile(),
   directPrompt: Schema.string().description('私聊额外system prompt').volatile(),  textChunkLimit: Schema.number().default(4500).description('单条消息最大字符数').volatile(),
   streaming: Schema.boolean().default(true).description('是否启用流式输出（群聊始终不启用）').volatile(),
@@ -246,6 +332,8 @@ export function resolveConfigValues(config: ImQQBotFormConfig): ImQQBotConfig {
     preset: config.preset.get(),
     cwd: config.cwd.get(),
     requireMention: config.requireMention.get(),
+    personaPrompt: config.personaPrompt.get(),
+    personaPresets: config.personaPresets.get().map(({ name, prompt }) => ({ name, prompt })),
     groupPrompt: config.groupPrompt.get(),
     directPrompt: config.directPrompt.get(),
     textChunkLimit: config.textChunkLimit.get(),

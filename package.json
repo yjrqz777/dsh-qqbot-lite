@@ -1,6 +1,6 @@
 {
-  "name": "@tencent-connect/dsh-qqbot",
-  "version": "0.5.0",
+  "name": "@yjrqz777/dsh-qqbot-lite",
+  "version": "1.0.0",
   "description": "QQ Bot IM channel plugin for deepseek-harness (dsh)",
   "type": "module",
   "main": "./dist/index.js",
@@ -35,11 +35,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/tencent-connect/dsh-qqbot.git"
+    "url": "https://github.com/yjrqz777/dsh-qqbot-lite.git"
   },
-  "homepage": "https://github.com/tencent-connect/dsh-qqbot#readme",
+  "homepage": "https://github.com/yjrqz777/dsh-qqbot-lite#readme",
   "bugs": {
-    "url": "https://github.com/tencent-connect/dsh-qqbot/issues"
+    "url": "https://github.com/yjrqz777/dsh-qqbot-lite/issues"
   },
   "dsh": {
     "bundle": {

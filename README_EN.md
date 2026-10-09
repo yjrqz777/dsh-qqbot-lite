@@ -4,9 +4,11 @@
 
 **A QQ Bot plugin for [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) (dsh), connecting DeepSeek AI assistants to QQ private and group chats.**
 
-[![npm version](https://img.shields.io/npm/v/@tencent-connect/dsh-qqbot)](https://www.npmjs.com/package/@tencent-connect/dsh-qqbot)
+> This project is further developed from Tencent Connect's open-source [`@tencent-connect/dsh-qqbot`](https://github.com/tencent-connect/dsh-qqbot) v0.5.0.
+
+[![npm version](https://img.shields.io/npm/v/@yjrqz777/dsh-qqbot-lite)](https://www.npmjs.com/package/@yjrqz777/dsh-qqbot-lite)
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/tencent-connect/dsh-qqbot)](https://github.com/tencent-connect/dsh-qqbot)
+[![GitHub stars](https://img.shields.io/github/stars/yjrqz777/dsh-qqbot-lite)](https://github.com/yjrqz777/dsh-qqbot-lite)
 [![QQ Bot](https://img.shields.io/badge/QQ_Bot-API_v2-red)](https://bot.q.qq.com/wiki/)
 
 <br/>
@@ -24,6 +26,16 @@ Scan to join the QQ group / channel
 
 </div>
 
+## Screenshots
+
+<table>
+<tr><th>QQ Bot settings and credentials</th><th>Suqing persona preset</th></tr>
+<tr>
+<td><img src="./docs/assets/qqbot-settings.png" alt="QQ Bot settings page" width="380"></td>
+<td><img src="./docs/assets/persona-suqing.png" alt="Suqing persona settings" width="380"></td>
+</tr>
+</table>
+
 ## Architecture
 
 ```
@@ -39,7 +51,7 @@ QQ User → QQ WebSocket → dsh-qqbot → ctx.agents → dsh agent loop → LLM
 
 ```bash
 # Add to a profile
-npx @deepseek-ai/dsh plugin --profile qqbot add @tencent-connect/dsh-qqbot
+npx @deepseek-ai/dsh plugin --profile qqbot add @yjrqz777/dsh-qqbot-lite
 
 # Start
 npx @deepseek-ai/dsh --profile qqbot
@@ -55,11 +67,11 @@ On first launch, the plugin detects missing credentials and automatically starts
 
 ```bash
 # Build
-cd /path/to/dsh-qqbot
+cd /path/to/dsh-qqbot-lite
 pnpm install && pnpm build
 
 # Add to a profile (local path)
-npx @deepseek-ai/dsh plugin --profile qqbot add /path/to/dsh-qqbot
+npx @deepseek-ai/dsh plugin --profile qqbot add /path/to/dsh-qqbot-lite
 
 # Start
 export QQBOT_APPID="yourAppID" QQBOT_SECRET="yourAppSecret"
@@ -70,7 +82,7 @@ npx @deepseek-ai/dsh --profile qqbot
 
 ```bash
 export QQBOT_APPID="yourAppID" QQBOT_SECRET="yourAppSecret"
-npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
+npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot-lite/cordis.dev.yml
 ```
 
 ## Configuration
@@ -86,6 +98,8 @@ npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
 | `requireMention` | boolean | `true` | Whether group messages require @bot to trigger |
 | `groupPrompt` | string | - | Extra system prompt for group chats |
 | `directPrompt` | string | - | Extra system prompt for direct chats |
+| `personaPrompt` | string | empty | Custom persona prompt shared by group and direct chats; editable as multiline text in settings |
+| `personaPresets` | object[] | built-in `苏晴` and `土豆小猫` | Persona presets saved from settings; `自定义` starts with a blank prompt |
 | `textChunkLimit` | number | `4500` | Max chars per message |
 | `streaming` | boolean | `true` | Enable streaming output (always disabled in groups) |
 | `sessionIdleTimeout` | number | `1800000` | Session idle timeout (ms), default 30 min |
@@ -131,6 +145,8 @@ npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
 | `sendFile.restrictPaths` | boolean | `true` | Enable path allowlist (media + cwd + extraRoots only) |
 | `sendFile.extraRoots` | string[] | `[]` | Extra allowed root directories |
 
+All QQ Bot settings, including AppID, AppSecret, model, access control, persona prompt, and presets, are stored in `dsh-qqbot-settings.json` in the active profile directory. On first startup, the file is initialized from the existing Cordis profile configuration; the settings page uses this file afterward.
+
 ## Built-in Commands
 
 | Command | Description |
@@ -143,7 +159,7 @@ npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
 | `/bot-ping` | Network latency test (transport & processing time) |
 | `/bot-version` | View version info |
 | `/bot-status` | View current session status |
-| `/bot-help` | View all commands |
+| `/help` | View all commands |
 
 ## Core Modules
 
@@ -224,9 +240,11 @@ pnpm dev
 
 # Debug via --patch
 export QQBOT_APPID="xxx" QQBOT_SECRET="xxx"
-npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
+npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot-lite/cordis.dev.yml
 ```
 
-## License
+## License and Third-Party Content
 
-[MIT](./LICENSE)
+The software code in this project is licensed under MIT; see [LICENSE](./LICENSE). This project is derived from Tencent Connect's dsh-qqbot v0.5.0, and retains the upstream MIT copyright notice.
+
+**The Suqing persona preset is not covered by this project's MIT license.** It is authored by [yjrqz777](https://github.com/yjrqz777). When using, copying, or redistributing the preset, retain the attribution “Author: yjrqz777” and link to the author's GitHub profile. Follow any additional terms published by the author.

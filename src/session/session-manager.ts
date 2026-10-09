@@ -74,6 +74,8 @@ export class SessionManager {
   private readonly agents: DshAgentRegistry;
   private readonly config: ImQQBotConfig;
   private readonly logger: Logger;
+  /** 已注入人格提示词的会话 ID，避免首轮中重复组装时重复追加。 */
+  private readonly personaInjectedAgents = new WeakSet<DshAgent>();
   /** 由 bootstrap 注入的问答通道（ask_user_question → QQ），会话回收时清理其待答问题 */
   public questionChannel?: QuestionChannel;
   /** 由 bootstrap 注入的审批通道（approval/request → QQ），会话回收时清理其待批审批 */
@@ -129,12 +131,21 @@ export class SessionManager {
       const record = this.findByAgent(context.agent);
       if (!record) return assembled;
 
-      const prompt = record.scope === 'group' ? this.config.groupPrompt : this.config.directPrompt;
-      if (!prompt) return assembled;
+      const personaPrompt = (this.config.personaPrompt ?? '').trim();
+      const priorAssistantTurn = context.agent.session.events?.some((event: any) => event.type === 'assistant/message') === true;
+      const firstConversationTurn = !priorAssistantTurn && !this.personaInjectedAgents.has(context.agent);
+      const scopePrompt = record.scope === 'group' ? this.config.groupPrompt : this.config.directPrompt;
+      const additions: PromptSection[] = [];
+      if (personaPrompt && firstConversationTurn) {
+        additions.push({ name: 'qqbot:persona-prompt', order: 89, text: personaPrompt });
+        this.personaInjectedAgents.add(context.agent);
+      }
+      if (scopePrompt) additions.push({ name: 'qqbot:scope-prompt', order: 90, text: scopePrompt });
+      if (additions.length === 0) return assembled;
 
       return {
         ...assembled,
-        sections: [...(assembled.sections ?? []), { name: 'qqbot:scope-prompt', order: 90, text: prompt }],
+        sections: [...(assembled.sections ?? []), ...additions],
       };
     };
 

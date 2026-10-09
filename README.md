@@ -1,6 +1,8 @@
-# dsh-qqbot
+# dsh-qqbot-lite
 
 基于 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) (dsh) 的 QQ Bot 插件，把 dsh agent 接入 QQ 私聊与群聊。
+
+> 本项目基于腾讯连接（Tencent Connect）开源的 [`@tencent-connect/dsh-qqbot`](https://github.com/tencent-connect/dsh-qqbot) v0.5.0 二次开发。
 
 ## 架构
 
@@ -11,11 +13,21 @@ QQ 用户 -> QQ WebSocket -> dsh-qqbot -> ctx.agents -> dsh agent loop -> LLM
                                      (assistant reply -> QQ sendMarkdown)
 ```
 
+## 界面截图
+
+<table>
+<tr><th>QQ Bot 配置与凭据</th><th>苏晴人格预设</th></tr>
+<tr>
+<td><img src="./docs/assets/qqbot-settings.png" alt="QQ Bot 设置页" width="380"></td>
+<td><img src="./docs/assets/persona-suqing.png" alt="人格配置页中的苏晴预设" width="380"></td>
+</tr>
+</table>
+
 ## 安装
 
 ```bash
 # 安装到 profile
-npx @deepseek-ai/dsh plugin --profile qqbot add @tencent-connect/dsh-qqbot
+npx @deepseek-ai/dsh plugin --profile qqbot add @yjrqz777/dsh-qqbot-lite
 
 # 启动（首次启动检测到凭据未配置会进入扫码绑定）
 npx @deepseek-ai/dsh --profile qqbot
@@ -27,7 +39,7 @@ npx @deepseek-ai/dsh --profile qqbot
 pnpm install && pnpm build
 
 export QQBOT_APPID="你的AppID" QQBOT_SECRET="你的AppSecret"
-npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
+npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot-lite/cordis.dev.yml
 ```
 
 ## 配置项
@@ -43,6 +55,8 @@ npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
 | `requireMention` | boolean | `true` | 群聊是否需要 @bot 才触发 |
 | `groupPrompt` | string | - | 群聊额外 system prompt |
 | `directPrompt` | string | - | 私聊额外 system prompt |
+| `personaPrompt` | string | 空 | 对私聊和群聊统一生效的人格提示词，可在设置页多行编辑 |
+| `personaPresets` | object[] | 内置「苏晴」「土豆小猫」 | 设置页保存的人格预设；自定义时可以选空白的「自定义」项 |
 | `textChunkLimit` | number | `4500` | 单条消息最大字符数 |
 | `streaming` | boolean | `true` | 是否启用流式输出（群聊始终不启用） |
 | `sessionIdleTimeout` | number | `1800000` | 会话闲置超时 (ms) |
@@ -83,7 +97,7 @@ npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
 | `sendFile.restrictPaths` | boolean | `true` | 路径白名单（仅 media + cwd + extraRoots） |
 | `sendFile.extraRoots` | string[] | `[]` | 额外允许访问的根目录 |
 
-## 内置命令
+QQ Bot 全部设置（包括 AppID、AppSecret、模型、权限、人格提示词和预设）保存在当前 profile 目录的 `dsh-qqbot-settings.json`。首次启动时会从现有 Cordis profile 配置读取默认值并初始化该文件；此后设置页以该文件为准。
 
 | 命令 | 说明 |
 |------|------|
@@ -95,7 +109,7 @@ npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
 | `/bot-ping` | 网络延迟检测 |
 | `/bot-version` | 查看版本信息 |
 | `/bot-status` | 查看当前会话状态 |
-| `/bot-help` | 查看所有指令 |
+| `/help` | 查看所有指令 |
 
 ## 目录结构
 
@@ -128,6 +142,8 @@ pnpm dev       # tsc --watch
 pnpm test      # vitest
 ```
 
-## License
+## 开源协议与第三方内容
 
-[MIT](./LICENSE)
+本项目的软件代码采用 MIT 许可证，详见 [LICENSE](./LICENSE)。本项目基于腾讯连接的 dsh-qqbot v0.5.0 二次开发，并保留上游 MIT 版权声明。
+
+**苏晴人格预设不属于本项目代码的 MIT 授权范围。** 作者为 [yjrqz777](https://github.com/yjrqz777)。使用、复制或转载该预设时，请保留“作者：yjrqz777”的署名并链接到其 GitHub 主页，同时遵守原作者公布的其他许可要求。

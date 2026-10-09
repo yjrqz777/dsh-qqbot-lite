@@ -1,5 +1,5 @@
 #!/bin/sh
-# @tencent-connect/dsh-qqbot 一键安装
+# @yjrqz777/dsh-qqbot-lite 一键安装
 #
 # 走 dsh CLI 的 profile 插件机制：`add` 自动初始化 profile（首层
 # dsh-base），pnpm 安装后按 dsh.bundle.patch 元数据把本包追加为 bundle 层。
@@ -14,7 +14,7 @@
 set -eu
 
 # ── 默认值 ──
-PACKAGE="@tencent-connect/dsh-qqbot"
+PACKAGE="@yjrqz777/dsh-qqbot-lite"
 VERSION=""
 REGISTRY=""
 PROFILE="qqbot"
@@ -42,7 +42,7 @@ while [ $# -gt 0 ]; do
       echo "用法: sh install.sh [选项]"
       echo
       echo "选项:"
-      echo "  --pkg <name>        指定 npm 包名 (默认: @tencent-connect/dsh-qqbot)"
+      echo "  --pkg <name>        指定 npm 包名 (默认: @yjrqz777/dsh-qqbot-lite)"
       echo "  --version <ver>     指定包版本 (默认: latest)"
       echo "  --registry <url>    指定 npm registry"
       echo "  --profile <name>    指定 dsh profile 名 (默认: qqbot)"
