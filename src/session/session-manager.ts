@@ -77,6 +77,8 @@ export class SessionManager {
   private readonly logger: Logger;
   /** 已注入人格提示词的会话 ID，避免首轮中重复组装时重复追加。 */
   private readonly personaInjectedAgents = new WeakSet<DshAgent>();
+  /** 最近一次注入的提示词，用于发现设置页修改并在下一轮重新注入。 */
+  private readonly personaPromptByAgent = new WeakMap<DshAgent, string>();
   /** 人格切换后，在该会话下一轮重新注入一次提示词。 */
   private readonly personaReapplyAgents = new WeakSet<DshAgent>();
   /** /persona new 两阶段输入状态，按 QQ 对话隔离。 */
@@ -140,12 +142,15 @@ export class SessionManager {
       const personaPrompt = this.getPersonaPrompt(record.scope, record.peerId);
       const priorAssistantTurn = context.agent.session.events?.some((event: any) => event.type === 'assistant/message') === true;
       const firstConversationTurn = !priorAssistantTurn && !this.personaInjectedAgents.has(context.agent);
-      const shouldReapplyPersona = this.personaReapplyAgents.has(context.agent);
+      const previousPersonaPrompt = this.personaPromptByAgent.get(context.agent);
+      const promptChanged = previousPersonaPrompt !== undefined && previousPersonaPrompt !== personaPrompt;
+      const shouldReapplyPersona = this.personaReapplyAgents.has(context.agent) || promptChanged;
       const scopePrompt = record.scope === 'group' ? this.config.groupPrompt : this.config.directPrompt;
       const additions: PromptSection[] = [];
       if (personaPrompt && (firstConversationTurn || shouldReapplyPersona)) {
         additions.push({ name: 'qqbot:persona-prompt', order: 89, text: personaPrompt });
         this.personaInjectedAgents.add(context.agent);
+        this.personaPromptByAgent.set(context.agent, personaPrompt);
         this.personaReapplyAgents.delete(context.agent);
       }
       if (scopePrompt) additions.push({ name: 'qqbot:scope-prompt', order: 90, text: scopePrompt });
