@@ -210,6 +210,8 @@ describe('QuestionChannel.askViaQQ', () => {
     expect(sent).toHaveLength(1);
     expect(sent[0]?.opts).toBeUndefined();
     expect(sent[0]?.text).toContain('回复编号选择');
+    expect(sent[0]?.text).toContain('按钮发送失败');
+    expect(sent[0]?.text).toContain('keyboard not permitted');
     ch.tryAnswer('c2c', 'U1', '1');
     await p;
   });
