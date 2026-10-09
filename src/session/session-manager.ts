@@ -230,7 +230,7 @@ export class SessionManager {
   }
 
   private persistPersonaSettings(): void {
-    const saved = savePluginSettings({
+    savePluginSettings({
       ...this.config,
       personaPresets: [...(this.config.personaPresets ?? [])],
       personaOverrides: { ...(this.config.personaOverrides ?? {}) },
@@ -246,8 +246,9 @@ export class SessionManager {
     }
     this.config.personaPresets ??= [];
     this.config.personaPresets.push({ name: cleanName, prompt: cleanPrompt });
-    this.config.personaOverrides ??= {};
-    this.config.personaOverrides[this.personaKey(scope, peerId)] = cleanName;
+    const overrides = this.config.personaOverrides ?? {};
+    overrides[this.personaKey(scope, peerId)] = cleanName;
+    this.config.personaOverrides = overrides;
     this.persistPersonaSettings();
     const active = this.sessions.get(this.sessionKey(scope, peerId));
     if (active) this.personaReapplyAgents.add(active.agent);
@@ -257,8 +258,9 @@ export class SessionManager {
   /** 将人格应用到指定 QQ 对话；活动会话的下一轮重新注入提示词。 */
   setPersonaOverride(scope: ChatScope, peerId: string, name: string): boolean {
     if (!this.config.personaPresets?.some((preset) => preset.name === name)) return false;
-    this.config.personaOverrides ??= {};
-    this.config.personaOverrides[this.personaKey(scope, peerId)] = name;
+    const overrides = this.config.personaOverrides ?? {};
+    overrides[this.personaKey(scope, peerId)] = name;
+    this.config.personaOverrides = overrides;
     this.persistPersonaSettings();
     const active = this.sessions.get(this.sessionKey(scope, peerId));
     if (active) this.personaReapplyAgents.add(active.agent);
@@ -267,8 +269,9 @@ export class SessionManager {
 
   /** 清除当前对话的人格覆盖，回到默认人格；下一轮重新注入默认提示词。 */
   clearPersonaOverride(scope: ChatScope, peerId: string): void {
-    this.config.personaOverrides ??= {};
-    delete this.config.personaOverrides[this.personaKey(scope, peerId)];
+    const overrides = this.config.personaOverrides ?? {};
+    delete overrides[this.personaKey(scope, peerId)];
+    this.config.personaOverrides = overrides;
     this.persistPersonaSettings();
     const active = this.sessions.get(this.sessionKey(scope, peerId));
     if (active) this.personaReapplyAgents.add(active.agent);
