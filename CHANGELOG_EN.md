@@ -4,19 +4,25 @@
 
 This file records significant dsh-qqbot updates from a product perspective, focusing on user-visible changes.
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-09
+
 ### Added
 
-- **Per-conversation personas**: default to Potato Cat, list or create presets with `/persona list` and `/persona new`, and select a persona per group or direct chat. Switching reinjects the prompt on the next turn without reconnecting the bot.
-- **Interactive question tool**: the model can send clickable single-choice buttons in QQ conversations. Users can click an option or reply with a number or text. Natural-language requests work without mentioning the internal tool name.
+- **Per-conversation personas**: default to Potato Cat, list or create presets with `/persona list` and `/persona new`, and select a persona per group or direct chat. The settings page lists conversations the bot has received messages from for individual configuration. Switching reinjects the new prompt on the next turn.
+- **Interactive questions**: the model can send clickable single-choice buttons in QQ conversations. Users can click an option or reply with a number or text.
+
+### Changed
+
+- Images in group and direct chats are passed to DSH as image content. The plugin prefers the downloaded local file and falls back to the QQ attachment URL when the local file is unavailable.
 
 ### Fixed
 
-- Removed the unsupported QQ keyboard `group_id` field, fixing rejected question and approval button messages.
-- When keyboard delivery fails, the text fallback now includes the QQ API error reason for easier diagnosis.
+- Fixed QQ rejecting question and approval button messages; if button delivery fails, the text fallback now includes the QQ API error reason.
+- Fixed images being omitted from DSH vision conversations when the local image download is unavailable.
 
 ## [0.5.0] - 2026-09-08
 
@@ -94,3 +100,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Fixed config parsing issues.
+
+
+[Unreleased]: https://github.com/yjrqz777/dsh-qqbot-lite/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/yjrqz777/dsh-qqbot-lite/compare/v1.0.0...v1.1.0
