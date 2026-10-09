@@ -13,10 +13,10 @@ const FILE_NAME = 'dsh-qqbot-settings.json';
 let cachedPath: string | undefined;
 let cachedValue: ImQQBotConfig | undefined;
 
-function settingsPath(): string {
-  const profileDir = getProfileDir();
-  if (!profileDir) throw new Error('无法定位 dsh profile 目录，不能保存 QQ Bot 配置');
-  return join(profileDir, FILE_NAME);
+function settingsPath(profileDir?: string): string {
+  const resolvedProfileDir = profileDir ?? getProfileDir();
+  if (!resolvedProfileDir) throw new Error('无法定位 dsh profile 目录，不能保存 QQ Bot 配置');
+  return join(resolvedProfileDir, FILE_NAME);
 }
 
 function normalize(value: unknown, defaults: ImQQBotConfig): ImQQBotConfig {
@@ -47,21 +47,21 @@ function copy(value: ImQQBotConfig): ImQQBotConfig {
 }
 
 /** Load the per-profile file, initializing it from Cordis config once if absent. */
-export function loadPluginSettings(defaults: ImQQBotConfig): ImQQBotConfig {
-  const path = settingsPath();
+export function loadPluginSettings(defaults: ImQQBotConfig, profileDir?: string): ImQQBotConfig {
+  const path = settingsPath(profileDir);
   if (cachedPath === path && cachedValue !== undefined) return copy(cachedValue);
   if (existsSync(path)) {
     cachedValue = normalize(JSON.parse(readFileSync(path, 'utf8')), defaults);
     cachedPath = path;
     return copy(cachedValue);
   }
-  return savePluginSettings(defaults, defaults);
+  return savePluginSettings(defaults, defaults, profileDir);
 }
 
 /** Persist all QQ Bot settings atomically and update the runtime cache. */
-export function savePluginSettings(value: unknown, defaults: ImQQBotConfig): ImQQBotConfig {
+export function savePluginSettings(value: unknown, defaults: ImQQBotConfig, profileDir?: string): ImQQBotConfig {
   const normalized = normalize(value, defaults);
-  const path = settingsPath();
+  const path = settingsPath(profileDir);
   mkdirSync(dirname(path), { recursive: true });
   const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
   writeFileSync(temporary, `${JSON.stringify(normalized, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });

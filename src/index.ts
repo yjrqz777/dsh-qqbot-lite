@@ -19,7 +19,7 @@ import type { Context } from '@deepseek-ai/cordis';
 import { ConfigSchema, resolveConfigValues, type ImQQBotConfig, type ImQQBotFormConfig } from './config.ts';
 import { LOG_PATH, teeLogger } from './log.ts';
 import type { DshAgentRegistry } from './session/index.ts';
-import { resolveEnv } from './shared/index.ts';
+import { getProfileDir, resolveEnv } from './shared/index.ts';
 import { QqbotStatus } from './status.ts';
 import { loadPluginSettings, savePluginSettings } from './settings-store.ts';
 import type { Logger } from './types.ts';
@@ -64,9 +64,11 @@ export async function apply(ctx: Context, config: ImQQBotFormConfig): Promise<vo
 async function bootstrap(ctx: Context, config: ImQQBotFormConfig, logger: Logger): Promise<void> {
   const agents = (ctx as unknown as Record<string, unknown>).agents as DshAgentRegistry;
   const defaults = resolveConfigValues(config);
+  const profileContext = (ctx as unknown as { profileContext?: { dir?: unknown } }).profileContext;
+  const profileDir = typeof profileContext?.dir === 'string' ? profileContext.dir : getProfileDir() ?? undefined;
   let activeSettings: ImQQBotConfig = defaults;
   try {
-    activeSettings = loadPluginSettings(defaults);
+    activeSettings = loadPluginSettings(defaults, profileDir);
   } catch (error) {
     logger.warn(`独立配置文件读取失败，将使用 profile 默认值: ${reason(error)}`);
   }
@@ -268,7 +270,7 @@ async function bootstrap(ctx: Context, config: ImQQBotFormConfig, logger: Logger
   };
 
   requestSettingsSave = async (value: unknown): Promise<ImQQBotConfig> => {
-    const updated = savePluginSettings(value, defaults);
+    const updated = savePluginSettings(value, defaults, profileDir);
     activeSettings = updated;
     pending = pending.then(() => startGateway(false)).catch((error: unknown) => {
       logger.error(`保存设置后重启网关失败: ${reason(error)}`);
@@ -295,7 +297,7 @@ async function bootstrap(ctx: Context, config: ImQQBotFormConfig, logger: Logger
   // 事件名由 Loader 声明，本包不额外依赖那个包，沿用本仓库既有的强转写法。
   (ctx as unknown as { on(event: string, handler: () => void): void })
     .on('loader/volatile-update', () => {
-      try { activeSettings = loadPluginSettings(resolveConfigValues(config)); } catch (error) {
+      try { activeSettings = loadPluginSettings(resolveConfigValues(config), profileDir); } catch (error) {
         logger.warn(`读取独立设置失败: ${reason(error)}`);
       }
       pending = pending

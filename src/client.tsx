@@ -505,7 +505,7 @@ window.__ModuleLoader__.load({
           className: 'dqb-button dqb-button-primary', type: 'button',
           disabled: connectionBusy || link.state === 'starting' || link.state === 'unknown' || link.state === 'unconfigured',
           onClick: () => { void onToggleConnection(); },
-        }, connectionBusy || link.state === 'starting' ? '连接中…' : (link.state === 'connected' ? '断开连接' : '连接')),
+        }, connectionBusy || link.state === 'starting' ? '连接中…' : (link.state === 'connected' ? '断开' : '连接')),
         h('span', { className: 'dqb-spacer' }),
         saveState.message === '' ? null : h('span', { className: `dqb-save dqb-save-${saveState.status}` }, saveState.message),
         h('button', {
