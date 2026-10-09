@@ -20,14 +20,29 @@ export function personaCommand({ manager, config }: CommandDeps): CategorizedCom
       const [action = '', ...restParts] = args.split(/\s+/);
       const value = restParts.join(' ').trim();
 
-      if (!args || action === 'list') {
+      if (!args) {
         const current = manager.getEffectivePersonaName(scope, peerId);
         const presets = manager.listPersonaPresets();
-        const lines = ['### 🎭 人格预设', '', `**当前对话:** ${current}`, '', '**可用预设:**'];
+        const lines = ['### 🎭 人格设置', '', `**当前对话:** ${current}`, '', '**选择操作:**',
+          '<qqbot-cmd-input text="/persona list" show="list"/> 查看预设',
+          '<qqbot-cmd-input text="/persona new" show="new"/> 新建预设',
+          '<qqbot-cmd-input text="/persona reset" show="恢复默认"/> 恢复默认人格',
+          '', '**快速切换:**'];
         for (const preset of presets) {
-          lines.push(`- ${preset.name}${preset.name === current ? ' ✓' : ''}`);
+          lines.push(`<qqbot-cmd-input text="/persona set ${preset.name}" show="${preset.name}${preset.name === current ? ' ✓' : ''}"/>`);
         }
-        lines.push('', '切换当前对话：`/persona set <名称>`', '新建预设：`/persona new`', '恢复默认：`/persona reset`');
+        await sendMarkdownChunked(cmdCtx, lines.join('\n'), config.textChunkLimit);
+        return { kind: 'noop' as const };
+      }
+
+      if (action === 'list') {
+        const current = manager.getEffectivePersonaName(scope, peerId);
+        const presets = manager.listPersonaPresets();
+        const lines = ['### 🎭 人格预设', '', `**当前对话:** ${current}`, '', '**点击预设切换当前对话:**'];
+        for (const preset of presets) {
+          lines.push(`<qqbot-cmd-input text="/persona set ${preset.name}" show="${preset.name}${preset.name === current ? ' ✓' : ''}"/>`);
+        }
+        lines.push('', '<qqbot-cmd-input text="/persona new" show="新建人格"/>');
         await sendMarkdownChunked(cmdCtx, lines.join('\n'), config.textChunkLimit);
         return { kind: 'noop' as const };
       }
