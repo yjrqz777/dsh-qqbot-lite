@@ -81,8 +81,9 @@ const css = (strings: TemplateStringsArray): string => strings.join('');
  * 颜色只在状态点上写死（用户要求的绿点），其余用 --dsw-alias-* 主题 token。
  */
 const CSS = css`
-.dqb-page { display: flex; flex-direction: column; gap: 20px; max-width: 640px; padding: 16px 0; }
-.dqb-toolbar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 10px; padding: 10px 0; background: var(--dsw-alias-bg-base, transparent); border-bottom: 0.5px solid var(--dsw-alias-border-l1); }
+.dqb-page { display: flex; flex-direction: column; gap: 16px; max-width: 760px; padding: 0 0 24px; }
+.dqb-sticky-header { position: sticky; top: 0; z-index: 10; display: flex; flex-direction: column; background: var(--dsw-alias-bg-base, #fff); }
+.dqb-toolbar { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 0; background: var(--dsw-alias-bg-base, #fff); border-bottom: 0.5px solid var(--dsw-alias-border-l1); }
 .dqb-status { display: flex; align-items: center; gap: 6px; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
 .dqb-dot { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: #8b949e; box-shadow: 0 0 0 3px rgba(139, 148, 158, 0.18); }
 .dqb-dot-connected { background: #2ea043; box-shadow: 0 0 0 3px rgba(46, 160, 67, 0.2); }
@@ -101,8 +102,13 @@ const CSS = css`
 .dqb-meta { margin: 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 .dqb-notice { margin: 0; padding: 8px 10px; font-size: 12px; line-height: 18px; border: 0.5px solid var(--dsw-alias-border-l1); border-radius: 8px; color: var(--dsw-alias-label-secondary); }
 .dqb-error { color: var(--dsw-alias-state-error-primary); }
-.dqb-group { display: flex; flex-direction: column; gap: 8px; }
-.dqb-group-title { margin: 0; font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-primary); }
+.dqb-category-tabs { display: flex; gap: 22px; overflow-x: auto; min-height: 42px; border-bottom: 1px solid var(--dsw-alias-border-l1); scrollbar-width: thin; }
+.dqb-category-tab { position: relative; flex: 0 0 auto; padding: 10px 2px 9px; font: inherit; font-size: 13px; color: var(--dsw-alias-label-secondary); background: transparent; border: 0; cursor: pointer; }
+.dqb-category-tab:hover { color: var(--dsw-alias-label-primary); }
+.dqb-category-tab-active { color: var(--dsw-alias-label-primary); font-weight: 600; }
+.dqb-category-tab-active::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: var(--dsw-alias-state-business-primary); content: ''; }
+.dqb-group { display: flex; flex-direction: column; gap: 12px; padding: 8px 0; }
+.dqb-group-title { margin: 0; font-size: 16px; font-weight: 600; color: var(--dsw-alias-label-primary); }
 .dqb-credential-link { margin-left: 8px; font-weight: 400; color: var(--dsw-alias-state-business-primary); text-decoration: none; }
 .dqb-credential-link:hover { text-decoration: underline; }
 .dqb-field { display: flex; flex-direction: column; gap: 4px; }
@@ -378,6 +384,7 @@ window.__ModuleLoader__.load({
       const [selectedPreset, setSelectedPreset] = React.useState('自定义');
       const [presetName, setPresetName] = React.useState('');
       const [connectionBusy, setConnectionBusy] = React.useState(false);
+      const [selectedGroup, setSelectedGroup] = React.useState(GROUPS[0]?.title ?? '');
 
       React.useEffect(() => {
         let alive = true;
@@ -577,12 +584,22 @@ window.__ModuleLoader__.load({
           onClick: () => { void onSave(); },
         }, saving ? '保存中…' : (dirtyKeys.length === 0 ? '保存' : `保存 (${dirtyKeys.length})`)));
 
-      const body = snapshot.status !== 'ready'
+      const activeGroup = GROUPS.find(group => group.title === selectedGroup) ?? GROUPS[0];
+      const categoryTabs = h('nav', { className: 'dqb-category-tabs', 'aria-label': 'QQ Bot 设置分类' },
+        GROUPS.map(group => h('button', {
+          className: group.title === activeGroup.title ? 'dqb-category-tab dqb-category-tab-active' : 'dqb-category-tab',
+          type: 'button',
+          key: group.title,
+          'aria-current': group.title === activeGroup.title ? 'page' : undefined,
+          onClick: () => setSelectedGroup(group.title),
+        }, group.title)));
+
+      const body = snapshot.status !== 'ready' || activeGroup === undefined
         ? null
-        : GROUPS.map(group => h('section', { className: 'dqb-group', key: group.title },
+        : h('section', { className: 'dqb-group', key: activeGroup.title },
           h('h3', { className: 'dqb-group-title' },
-             group.title,
-             group.title === '凭据'
+             activeGroup.title,
+             activeGroup.title === '凭据'
                ? h('a', {
                  className: 'dqb-credential-link',
                  href: 'https://q.qq.com/qqbot/openclaw/login.html',
@@ -590,9 +607,9 @@ window.__ModuleLoader__.load({
                  rel: 'noopener noreferrer',
                }, '获取凭据')
                : null),
-          group.title === '人格配置' ? personaTools : null,
-          group.fields.map(field => renderField(field, snapshot, drafts, setDraft, () => setSelectedPreset('自定义'))),
-          group.title === '人格配置' ? personaPeerTools : null));
+          activeGroup.title === '人格配置' ? personaTools : null,
+          activeGroup.fields.map(field => renderField(field, snapshot, drafts, setDraft, () => setSelectedPreset('自定义'))),
+          activeGroup.title === '人格配置' ? personaPeerTools : null);
 
       const notice = snapshot.status === 'loading'
         ? h('p', { className: 'dqb-notice' }, '正在读取配置…')
@@ -609,7 +626,9 @@ window.__ModuleLoader__.load({
 
       return h('div', { className: 'dqb-page' },
         h('style', null, CSS),
-        toolbar,
+        h('div', { className: 'dqb-sticky-header' },
+          toolbar,
+          categoryTabs),
         h('p', { className: 'dqb-meta' }, '全部 QQ Bot 配置保存在 profile 目录下的 dsh-qqbot-settings.json。'),
         runtimeError,
         notice,
