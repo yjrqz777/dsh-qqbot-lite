@@ -18,6 +18,6 @@ if (patchFile) {
   const patch = readFileSync(patchPath, 'utf8');
   writeFileSync(
     patchPath,
-    patch.replace(/name:\s*'@tencent-connect\/dsh-qqbot'/, `name: '${INTRANET_NAME}'`),
+    patch.replace(/name:\s*'@yjrqz777\/dsh-qqbot-lite'/, `name: '${INTRANET_NAME}'`),
   );
 }

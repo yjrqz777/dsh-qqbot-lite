@@ -4,9 +4,9 @@
 
 **A QQ Bot plugin for [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) (dsh), connecting DeepSeek AI assistants to QQ private and group chats.**
 
-[![npm version](https://img.shields.io/npm/v/@tencent-connect/dsh-qqbot)](https://www.npmjs.com/package/@tencent-connect/dsh-qqbot)
+[![npm version](https://img.shields.io/npm/v/@yjrqz777/dsh-qqbot-lite)](https://www.npmjs.com/package/@yjrqz777/dsh-qqbot-lite)
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/tencent-connect/dsh-qqbot)](https://github.com/tencent-connect/dsh-qqbot)
+[![GitHub stars](https://img.shields.io/github/stars/yjrqz777/dsh-qqbot-lite)](https://github.com/yjrqz777/dsh-qqbot-lite)
 [![QQ Bot](https://img.shields.io/badge/QQ_Bot-API_v2-red)](https://bot.q.qq.com/wiki/)
 
 <br/>
@@ -39,7 +39,7 @@ QQ User → QQ WebSocket → dsh-qqbot → ctx.agents → dsh agent loop → LLM
 
 ```bash
 # Add to a profile
-npx @deepseek-ai/dsh plugin --profile qqbot add @tencent-connect/dsh-qqbot
+npx @deepseek-ai/dsh plugin --profile qqbot add @yjrqz777/dsh-qqbot-lite
 
 # Start
 npx @deepseek-ai/dsh --profile qqbot
@@ -55,11 +55,11 @@ On first launch, the plugin detects missing credentials and automatically starts
 
 ```bash
 # Build
-cd /path/to/dsh-qqbot
+cd /path/to/dsh-qqbot-lite
 pnpm install && pnpm build
 
 # Add to a profile (local path)
-npx @deepseek-ai/dsh plugin --profile qqbot add /path/to/dsh-qqbot
+npx @deepseek-ai/dsh plugin --profile qqbot add /path/to/dsh-qqbot-lite
 
 # Start
 export QQBOT_APPID="yourAppID" QQBOT_SECRET="yourAppSecret"
@@ -70,7 +70,7 @@ npx @deepseek-ai/dsh --profile qqbot
 
 ```bash
 export QQBOT_APPID="yourAppID" QQBOT_SECRET="yourAppSecret"
-npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
+npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot-lite/cordis.dev.yml
 ```
 
 ## Configuration
@@ -86,6 +86,7 @@ npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
 | `requireMention` | boolean | `true` | Whether group messages require @bot to trigger |
 | `groupPrompt` | string | - | Extra system prompt for group chats |
 | `directPrompt` | string | - | Extra system prompt for direct chats |
+| `personaPrompt` | string | empty | Custom persona prompt shared by group and direct chats; editable as multiline text in settings |
 | `textChunkLimit` | number | `4500` | Max chars per message |
 | `streaming` | boolean | `true` | Enable streaming output (always disabled in groups) |
 | `sessionIdleTimeout` | number | `1800000` | Session idle timeout (ms), default 30 min |
@@ -224,7 +225,7 @@ pnpm dev
 
 # Debug via --patch
 export QQBOT_APPID="xxx" QQBOT_SECRET="xxx"
-npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
+npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot-lite/cordis.dev.yml
 ```
 
 ## License

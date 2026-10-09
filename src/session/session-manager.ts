@@ -129,12 +129,16 @@ export class SessionManager {
       const record = this.findByAgent(context.agent);
       if (!record) return assembled;
 
-      const prompt = record.scope === 'group' ? this.config.groupPrompt : this.config.directPrompt;
-      if (!prompt) return assembled;
+      const personaPrompt = (this.config.personaPrompt ?? '').trim();
+      const scopePrompt = record.scope === 'group' ? this.config.groupPrompt : this.config.directPrompt;
+      const additions: PromptSection[] = [];
+      if (personaPrompt) additions.push({ name: 'qqbot:persona-prompt', order: 89, text: personaPrompt });
+      if (scopePrompt) additions.push({ name: 'qqbot:scope-prompt', order: 90, text: scopePrompt });
+      if (additions.length === 0) return assembled;
 
       return {
         ...assembled,
-        sections: [...(assembled.sections ?? []), { name: 'qqbot:scope-prompt', order: 90, text: prompt }],
+        sections: [...(assembled.sections ?? []), ...additions],
       };
     };
 

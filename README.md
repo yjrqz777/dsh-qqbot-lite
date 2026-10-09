@@ -1,4 +1,4 @@
-# dsh-qqbot
+# dsh-qqbot-lite
 
 基于 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) (dsh) 的 QQ Bot 插件，把 dsh agent 接入 QQ 私聊与群聊。
 
@@ -15,7 +15,7 @@ QQ 用户 -> QQ WebSocket -> dsh-qqbot -> ctx.agents -> dsh agent loop -> LLM
 
 ```bash
 # 安装到 profile
-npx @deepseek-ai/dsh plugin --profile qqbot add @tencent-connect/dsh-qqbot
+npx @deepseek-ai/dsh plugin --profile qqbot add @yjrqz777/dsh-qqbot-lite
 
 # 启动（首次启动检测到凭据未配置会进入扫码绑定）
 npx @deepseek-ai/dsh --profile qqbot
@@ -27,7 +27,7 @@ npx @deepseek-ai/dsh --profile qqbot
 pnpm install && pnpm build
 
 export QQBOT_APPID="你的AppID" QQBOT_SECRET="你的AppSecret"
-npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
+npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot-lite/cordis.dev.yml
 ```
 
 ## 配置项
@@ -43,6 +43,7 @@ npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
 | `requireMention` | boolean | `true` | 群聊是否需要 @bot 才触发 |
 | `groupPrompt` | string | - | 群聊额外 system prompt |
 | `directPrompt` | string | - | 私聊额外 system prompt |
+| `personaPrompt` | string | 空 | 对私聊和群聊统一生效的人格提示词，可在设置页多行编辑 |
 | `textChunkLimit` | number | `4500` | 单条消息最大字符数 |
 | `streaming` | boolean | `true` | 是否启用流式输出（群聊始终不启用） |
 | `sessionIdleTimeout` | number | `1800000` | 会话闲置超时 (ms) |

@@ -4,7 +4,7 @@
  * 本文件是**经典脚本**，不是模块：没有 import、没有 export，`tsc` 按原样输出
  * 成 lazy-CJS factory，由浏览器的模块表加载。产物必须满足：
  *   window.__ModuleLoader__.load({ id: '<包名>', factory(require) { ... } })
- * `id` 必须是包名（@tencent-connect/dsh-qqbot），否则该 Loader 行等不到注册。
+ * `id` 必须是包名（@yjrqz777/dsh-qqbot-lite），否则该 Loader 行等不到注册。
  *
  * 配置读写不经过任何自有协议：页面用 dsh 的 settings 服务
  * （ctx.configForms）读写本插件在 profile 里的那一行 config，落盘、校验、
@@ -109,6 +109,7 @@ const CSS = css`
 .dqb-input:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
 .dqb-input:disabled { opacity: 0.5; }
 .dqb-textarea { min-height: 56px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.dqb-persona-input { min-height: 120px; font-family: inherit; }
 .dqb-check { flex: 0 0 auto; width: 16px; height: 16px; }
 .dqb-hint { margin: 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 `;
@@ -117,7 +118,7 @@ const CSS = css`
 interface FieldSpec {
   readonly path: string[];
   readonly label: string;
-  readonly kind: 'text' | 'number' | 'boolean' | 'select' | 'list';
+  readonly kind: 'text' | 'textarea' | 'number' | 'boolean' | 'select' | 'list';
   readonly options?: string[];
   readonly hint?: string;
 }
@@ -152,6 +153,12 @@ const GROUPS: FieldGroup[] = [
       { path: ['historyLimit'], label: '群历史条数', kind: 'number' },
       { path: ['showToolResults'], label: '展示工具成功结果', kind: 'boolean' },
       { path: ['debug'], label: '调试模式', kind: 'boolean' },
+    ],
+  },
+  {
+    title: '人格配置',
+    fields: [
+      { path: ['personaPrompt'], label: '人格提示词', kind: 'textarea', hint: '对私聊和群聊都生效；每轮对话都会作为系统提示词注入。支持多行。' },
     ],
   },
   {
@@ -201,7 +208,7 @@ const GROUPS: FieldGroup[] = [
 ];
 
 window.__ModuleLoader__.load({
-  id: '@tencent-connect/dsh-qqbot',
+  id: '@yjrqz777/dsh-qqbot-lite',
   factory(require) {
     // 依赖加载失败只让本插件的设置页消失，绝不把整个外壳带下水：
     // 返回一个什么都不做的插件，外壳照常启动。
@@ -347,9 +354,10 @@ window.__ModuleLoader__.load({
         }, (field.options ?? []).map(option => h('option', { key: option, value: option }, option))));
       }
 
-      if (field.kind === 'list') {
+      if (field.kind === 'list' || field.kind === 'textarea') {
         return frame(h('textarea', {
-          className: 'dqb-input dqb-textarea',
+          className: field.kind === 'textarea' ? 'dqb-input dqb-textarea dqb-persona-input' : 'dqb-input dqb-textarea',
+          rows: field.kind === 'textarea' ? 5 : undefined,
           value: text,
           disabled,
           spellCheck: false,

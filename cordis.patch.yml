@@ -1,6 +1,6 @@
 # dsh-im-qqbot bundle patch
 #
-# 当本包通过 `dsh plugin --profile <name> add @tencent-connect/dsh-qqbot` 安装后，
+# 当本包通过 `dsh plugin --profile <name> add @yjrqz777/dsh-qqbot-lite` 安装后，
 # dsh 启动时自动加载此 patch。
 #
 # 环境变量：
@@ -12,7 +12,7 @@
 # ── 插入 im-qqbot 插件行 ──
 - insert:
     - id: im-qqbot
-      name: '@tencent-connect/dsh-qqbot'
+      name: '@yjrqz777/dsh-qqbot-lite'
       config:
         appId: __FROM_ENV__
         appSecret: __FROM_ENV__

@@ -3,7 +3,7 @@
 # 用法：
 #   export QQBOT_APPID="你的AppID" QQBOT_SECRET="你的AppSecret"
 #   cd /path/to/deepseek-harness
-#   pnpm dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
+#   pnpm dsh web --patch /path/to/dsh-qqbot-lite/cordis.dev.yml
 #
 
 # 挂载 logger-console 插件，开启 debug 日志（insert 才能新增条目）
@@ -24,7 +24,7 @@
 # 源码版本用唯一 id，避免与 bundle 层同 id 冲突
 - insert:
     - id: im-qqbot-dev
-      name: '/path/to/dsh-qqbot/src/index.ts'
+      name: '/path/to/dsh-qqbot-lite/src/index.ts'
       config:
         appId: __FROM_ENV__
         appSecret: __FROM_ENV__
