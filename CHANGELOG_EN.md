@@ -6,6 +6,17 @@ This file records significant dsh-qqbot updates from a product perspective, focu
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Added
+
+- **Interactive question tool**: the model can send clickable single-choice buttons in QQ conversations. Users can click an option or reply with a number or text. Natural-language requests work without mentioning the internal tool name.
+
+### Fixed
+
+- Removed the unsupported QQ keyboard `group_id` field, fixing rejected question and approval button messages.
+- When keyboard delivery fails, the text fallback now includes the QQ API error reason for easier diagnosis.
+
 ## [0.5.0] - 2026-09-08
 
 ### Added
