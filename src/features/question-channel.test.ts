@@ -382,7 +382,7 @@ describe('QuestionChannel.install routing', () => {
     const logger = createLogger();
     const ch = new QuestionChannel(createManager(), createSender(sent), { requireMention: false, askTimeoutMs: 60_000 }, logger);
     ch.install({ get: () => undefined });
-    expect(logger.warn).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('tools 服务不可用'));
   });
 });
 

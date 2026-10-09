@@ -132,6 +132,12 @@ Desktop 模式下无需设置 `QQBOT_APPID` 和 `QQBOT_SECRET` 环境变量；�
 
 QQ Bot 全部设置（包括 AppID、AppSecret、模型、权限、人格提示词和预设）保存在当前 profile 目录的 `dsh-qqbot-settings.json`。首次启动时会从现有 Cordis profile 配置读取默认值并初始化该文件；此后设置页以该文件为准。
 
+## 交互式提问（按钮）
+
+插件注册了模型可调用工具 `qqbot_ask_user`。需要用户作出选择或补充确认时，模型可调用它发送单选按钮；用户点击选项或直接回复文本后，选择结果会返回给模型继续处理。工具接受一个问题和 2～8 个选项。
+
+测试时可对机器人说：`用 qqbot_ask_user 问我午饭想吃什么，选项是面条、米饭和都可以。` 不需要额外安装宿主的 `ask_user_question` 工具。
+
 | 命令 | 说明 |
 |------|------|
 | `/new`（别名 `/reset` `/clear`） | 开始新会话（清空上下文） |

@@ -159,6 +159,12 @@ Desktop does not require the `QQBOT_APPID` or `QQBOT_SECRET` environment variabl
 
 All QQ Bot settings, including AppID, AppSecret, model, access control, persona prompt, and presets, are stored in `dsh-qqbot-settings.json` in the active profile directory. On first startup, the file is initialized from the existing Cordis profile configuration; the settings page uses this file afterward.
 
+## Interactive questions (buttons)
+
+The plugin registers a model-callable `qqbot_ask_user` tool. When a user decision or clarification is needed, the model can call it to send single-choice buttons. The user can click an option or reply with text; the answer is returned to the model. It accepts one question and 2–8 options.
+
+To test it, ask the bot: `Use qqbot_ask_user to ask what I want for lunch, with noodles, rice, and either as options.` No host `ask_user_question` tool is required.
+
 ## Built-in Commands
 
 | Command | Description |
