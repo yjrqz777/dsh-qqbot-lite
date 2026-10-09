@@ -606,7 +606,7 @@ window.__ModuleLoader__.load({
             ? h('div', { className: 'dqb-about' },
               h('p', null, h('strong', null, '插件：'), 'dsh-qqbot-lite'),
               h('p', null, h('strong', null, '版本：'), '1.0.0'),
-              h('p', null, h('strong', null, '作者：'), 'YJRQZ777'),
+              h('p', null, h('strong', null, '作者：'), h('a', { href: 'https://github.com/yjrqz777', target: '_blank', rel: 'noopener noreferrer' }, 'YJRQZ777')),
               h('p', null, '本项目基于腾讯 dsh-qqbot v0.5.0 二次开发。'),
               h('p', null, h('strong', null, '开源协议：'), 'MIT'),
               h('p', null, h('strong', null, '项目地址：'), h('a', { href: 'https://github.com/yjrqz777/dsh-qqbot-lite', target: '_blank', rel: 'noopener noreferrer' }, 'GitHub'))
