@@ -38,8 +38,6 @@ export function buildKeyboard(question: UserQuestion): InlineKeyboard | undefine
             click_limit: 1,
             data: encodeButtonData({ t: 'question', q: question.id, i: idx }),
           },
-          // 同一题的选项共享分组：点一个后其余变灰（单选互斥）
-          group_id: `q-${question.id}`,
         };
       }),
     });
