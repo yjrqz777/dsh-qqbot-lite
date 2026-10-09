@@ -471,6 +471,49 @@ window.__ModuleLoader__.load({
         h('input', { className: 'dqb-input dqb-preset-name', type: 'text', value: presetName, placeholder: '预设名称', disabled: snapshot.status !== 'ready' || snapshot.writable !== true, onChange: (event: any) => setPresetName(event.target.value) }),
         h('button', { className: 'dqb-button dqb-preset-save', type: 'button', disabled: saving || snapshot.status !== 'ready' || snapshot.writable !== true, onClick: () => { void onSavePreset(); } }, '保存预设'));
 
+      const personaPeers = Array.isArray(snapshot.value.personaPeers) ? snapshot.value.personaPeers : [];
+      const personaOverrides = snapshot.value.personaOverrides !== null && typeof snapshot.value.personaOverrides === 'object'
+        ? snapshot.value.personaOverrides
+        : {};
+      const peerPersonaKey = (peer: any): string => `${snapshot.value.appId}:${peer.scope}:${peer.peerId}`;
+      const onPeerPersonaChange = async (peer: any, name: string): Promise<void> => {
+        const next = JSON.parse(JSON.stringify(snapshot.value));
+        const overrides = { ...(next.personaOverrides ?? {}) };
+        const key = peerPersonaKey(peer);
+        if (name === '') delete overrides[key];
+        else overrides[key] = name;
+        next.personaOverrides = overrides;
+        setSaveState({ status: 'saving', message: '保存会话人格…' });
+        try {
+          const saved = await persistSettings(next);
+          setSnapshot({ ...snapshot, status: 'ready', value: saved, writable: true, error: null });
+          setSaveState({ status: 'saved', message: '会话人格已保存' });
+        } catch (error: unknown) {
+          setSaveState({ status: 'error', message: error instanceof Error ? error.message : String(error) });
+        }
+      };
+      const personaPeerTools = h('div', { className: 'dqb-persona-peers' },
+        h('h4', { className: 'dqb-persona-peers-title' }, '按群或好友设置人格'),
+        h('p', { className: 'dqb-hint' }, '这里只显示机器人已经收到过消息的会话。新群或好友发消息后会自动出现在列表中。'),
+        personaPeers.length === 0
+          ? h('p', { className: 'dqb-notice' }, '暂无会话记录')
+          : personaPeers.map((peer: any) => h('div', {
+            className: 'dqb-persona-peer',
+            key: `${peer.scope}:${peer.peerId}`,
+          },
+            h('div', { className: 'dqb-persona-peer-info' },
+              h('strong', null, peer.label),
+              h('small', null, `${peer.scope === 'group' ? '群聊' : '好友'} · ${peer.peerId}`)),
+            h('select', {
+              className: 'dqb-input dqb-persona-peer-select',
+              value: personaOverrides[peerPersonaKey(peer)] ?? '',
+              disabled: saving || snapshot.status !== 'ready' || snapshot.writable !== true,
+              onChange: (event: any) => { void onPeerPersonaChange(peer, event.target.value); },
+            }, [
+              h('option', { key: 'default', value: '' }, '跟随默认人格'),
+              ...personaPresets.map((preset: any) => h('option', { key: preset.name, value: preset.name }, preset.name)),
+            ]))));
+
       /** 把所有草稿合成一次 mutate；任一项不合法就整体不提交。 */
       const onSave = async (): Promise<void> => {
         const ops: any[] = [];
@@ -542,7 +585,8 @@ window.__ModuleLoader__.load({
                }, '获取凭据')
                : null),
           group.title === '人格配置' ? personaTools : null,
-          group.fields.map(field => renderField(field, snapshot, drafts, setDraft, () => setSelectedPreset('自定义')))));
+          group.fields.map(field => renderField(field, snapshot, drafts, setDraft, () => setSelectedPreset('自定义'))),
+          group.title === '人格配置' ? personaPeerTools : null));
 
       const notice = snapshot.status === 'loading'
         ? h('p', { className: 'dqb-notice' }, '正在读取配置…')
