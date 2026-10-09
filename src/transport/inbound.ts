@@ -90,7 +90,7 @@ export async function handleInbound(
   manager: SessionManager,
   config: ImQQBotConfig,
   logger: Logger,
-  attachGroupImage?: (image: string) => Promise<ContentBlock>,
+  attachImage?: (image: string) => Promise<ContentBlock>,
 ): Promise<void> {
   const msg = ctx.message as unknown as ProcessedMessage;
   const mwState = ctx.state as MiddlewareState;
@@ -110,29 +110,29 @@ export async function handleInbound(
 
   if (!agentBody) return;
 
-  // 群聊只把本地路径作为文本发给 Agent 时，模型无法实际读取图片。
-  // 这里附上 dsh 图像块，让会话模型直接获得图片内容。
-  const groupImageBlocks: ContentBlock[] = [];
-  if (scope === 'group' && config.vision.enabled && attachGroupImage) {
+  // 只把本地路径作为文本发给 Agent 时，模型无法实际读取图片。
+  // 私聊和群聊都附上 dsh 图像块，让会话模型直接获得图片内容。
+  const imageBlocks: ContentBlock[] = [];
+  if (config.vision.enabled && attachImage) {
     const imagePaths = (mwState.downloadedFiles ?? [])
       .filter((file) => file.contentType === 'image')
       .map((file) => file.localPath);
 
     for (const imagePath of imagePaths) {
       try {
-        groupImageBlocks.push(await attachGroupImage(imagePath));
+        imageBlocks.push(await attachImage(imagePath));
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
         logger.warn(`im-qqbot: 群聊图片附加失败: ${reason}`);
       }
     }
 
-    if (groupImageBlocks.length > 0) {
+    if (imageBlocks.length > 0) {
       agentBody = agentBody.replace(/^([ \t]*)- Image: .*$/gm, '$1- Image attached as visual input');
     }
   }
 
-  logger.info(`Processing: scope=${scope} peerId=${peerId} body="${agentBody.slice(0, 200)}" images=${groupImageBlocks.length}`);
+  logger.info(`Processing: scope=${scope} peerId=${peerId} body="${agentBody.slice(0, 200)}" images=${imageBlocks.length}`);
 
   // ── 获取或创建会话 ──
   let record;
@@ -153,7 +153,7 @@ export async function handleInbound(
   }
 
   // ── 构建 UserMessage → followup ──
-  const content: ContentBlock[] = [{ type: 'text' as const, text: agentBody }, ...groupImageBlocks];
+  const content: ContentBlock[] = [{ type: 'text' as const, text: agentBody }, ...imageBlocks];
 
   const message = createUserMessage({
     content,
