@@ -7,6 +7,7 @@
  * /persona reset     恢复默认人格
  */
 import type { CommandDeps, CategorizedCommand } from './types.ts';
+import { getScopePeer } from '../shared/index.ts';
 import type { ChatScope } from '../types.ts';
 import type { SessionManager } from '../session/index.ts';
 
@@ -116,5 +117,3 @@ export function personaCommand({ manager }: CommandDeps): CategorizedCommand {
     },
   };
 }
-
-import { getScopePeer } from '../shared/index.ts';
