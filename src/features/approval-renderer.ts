@@ -53,7 +53,6 @@ export function buildApprovalKeyboard(): InlineKeyboard {
       click_limit: 1,
       data: encodeButtonData({ t: 'approval', d: 'deny' }),
     },
-    group_id: 'approval',
   };
   return { content: { rows: [{ buttons: [allow, deny] }] } };
 }
