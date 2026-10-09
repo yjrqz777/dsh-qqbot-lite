@@ -4,6 +4,8 @@
 
 > 本项目基于腾讯连接（Tencent Connect）开源的 [`@tencent-connect/dsh-qqbot`](https://github.com/tencent-connect/dsh-qqbot) v0.5.0 二次开发。
 
+> 当前仅测试 dsh Desktop 桌面端模式；其他运行模式尚未测试。
+
 ## 架构
 
 ```
