@@ -81,7 +81,7 @@ const css = (strings: TemplateStringsArray): string => strings.join('');
  * 颜色只在状态点上写死（用户要求的绿点），其余用 --dsw-alias-* 主题 token。
  */
 const CSS = css`
-.dqb-page { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 760px; max-height: calc(100vh - 140px); padding: 0 0 24px; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.dqb-page { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 760px; max-height: calc(100vh - 140px); padding: 0 0 24px; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
 .dqb-page::-webkit-scrollbar, .dqb-page *::-webkit-scrollbar { display: none; }
 .dqb-page * { scrollbar-width: none; }
 .dqb-sticky-header { position: sticky; top: 0; z-index: 10; display: flex; flex-direction: column; background: var(--dsw-alias-bg-base, #fff); }
@@ -101,7 +101,7 @@ const CSS = css`
 .dqb-save { font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 .dqb-save-saved { color: var(--dsw-alias-state-business-primary); }
 .dqb-save-error { color: var(--dsw-alias-state-error-primary); }
-.dqb-meta { margin: 0; font-size: 11px; line-height: 16px; color: var(--dsw-alias-label-tertiary); }
+.dqb-meta { margin: 0; padding: 0; font-size: 11px; line-height: 14px; color: var(--dsw-alias-label-tertiary); }
 .dqb-notice { margin: 0; padding: 8px 10px; font-size: 12px; line-height: 18px; border: 0.5px solid var(--dsw-alias-border-l1); border-radius: 8px; color: var(--dsw-alias-label-secondary); }
 .dqb-error { color: var(--dsw-alias-state-error-primary); }
 .dqb-category-tabs { display: flex; flex-wrap: wrap; gap: 0 22px; min-height: 42px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
@@ -109,13 +109,13 @@ const CSS = css`
 .dqb-category-tab:hover { color: var(--dsw-alias-label-primary); }
 .dqb-category-tab-active { color: var(--dsw-alias-label-primary); font-weight: 600; }
 .dqb-category-tab-active::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: var(--dsw-alias-state-business-primary); content: ''; }
-.dqb-group { display: flex; flex-direction: column; gap: 12px; padding: 8px 0; }
+.dqb-group { display: flex; flex-direction: column; gap: 12px; padding: 4px 0; }
 .dqb-group-title { margin: 0; font-size: 16px; font-weight: 600; color: var(--dsw-alias-label-primary); }
 .dqb-about { display: grid; gap: 12px; max-width: 560px; padding: 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; }
 .dqb-about p { margin: 0; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 20px; }
 .dqb-about a { color: var(--dsw-alias-state-business-primary); text-decoration: none; }
 .dqb-about a:hover { text-decoration: underline; }
-.dqb-credential-link { margin-left: 8px; font-weight: 400; color: var(--dsw-alias-state-business-primary); text-decoration: none; }
+.dqb-credential-link { align-self: flex-start; margin: 0 0 4px; font-weight: 400; color: var(--dsw-alias-state-business-primary); text-decoration: none; }
 .dqb-credential-link:hover { text-decoration: underline; }
 .dqb-field { display: flex; flex-direction: column; gap: 4px; }
 .dqb-row { display: flex; align-items: center; gap: 12px; min-height: 28px; }
@@ -594,16 +594,14 @@ window.__ModuleLoader__.load({
       const body = snapshot.status !== 'ready' || activeGroup === undefined
         ? null
         : h('section', { className: 'dqb-group', key: activeGroup.title },
-          h('h3', { className: 'dqb-group-title' },
-             activeGroup.title,
-             activeGroup.title === '凭据与会话'
-               ? h('a', {
-                 className: 'dqb-credential-link',
-                 href: 'https://q.qq.com/qqbot/openclaw/login.html',
-                 target: '_blank',
-                 rel: 'noopener noreferrer',
-               }, '获取凭据')
-               : null),
+          activeGroup.title === '凭据与会话'
+            ? h('a', {
+              className: 'dqb-credential-link',
+              href: 'https://q.qq.com/qqbot/openclaw/login.html',
+              target: '_blank',
+              rel: 'noopener noreferrer',
+            }, '获取凭据')
+            : null,
           activeGroup.about
             ? h('div', { className: 'dqb-about' },
               h('p', null, h('strong', null, '插件：'), 'dsh-qqbot-lite'),
