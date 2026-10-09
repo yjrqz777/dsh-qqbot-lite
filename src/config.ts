@@ -168,7 +168,7 @@ export interface ImQQBotFormConfig {
 }
 
 /** 配置 Schema。输出类型由 volatile 字段推导（default 仍是普通值，输出是 Volatile 引用）。 */
-export const ConfigSchema = Schema.object({
+export const ConfigSchema: Schemastery = Schema.object({
   appId: Schema.string().default('').description('QQ Bot AppID').volatile(),
   // AppSecret 明文存取：不声明 role('secret')，否则 settings 服务会在每次
   // describe 时把它从响应里抹掉，设置页保存后就再也读不回值。
@@ -254,7 +254,7 @@ export function resolveConfigValues(config: ImQQBotFormConfig): ImQQBotConfig {
     cwd: config.cwd.get(),
     requireMention: config.requireMention.get(),
     personaPrompt: config.personaPrompt.get(),
-    personaPresets: config.personaPresets.get(),
+    personaPresets: config.personaPresets.get().map(({ name, prompt }) => ({ name, prompt })),
     groupPrompt: config.groupPrompt.get(),
     directPrompt: config.directPrompt.get(),
     textChunkLimit: config.textChunkLimit.get(),
