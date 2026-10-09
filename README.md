@@ -88,7 +88,7 @@ Desktop 模式下无需设置 `QQBOT_APPID` 和 `QQBOT_SECRET` 环境变量；�
 | `requireMention` | boolean | `true` | 群聊是否需要 @bot 才触发 |
 | `groupPrompt` | string | - | 群聊额外 system prompt |
 | `directPrompt` | string | - | 私聊额外 system prompt |
-| `personaPrompt` | string | 空 | 对私聊和群聊统一生效的人格提示词，可在设置页多行编辑 |
+| `personaPrompt` | string | 土豆小猫 | QQ 会话默认人格；可在设置页编辑，单个群/私聊可用 `/persona` 覆盖 |
 | `personaPresets` | object[] | 内置「苏晴」「土豆小猫」 | 设置页保存的人格预设；自定义时可以选空白的「自定义」项 |
 | `textChunkLimit` | number | `4500` | 单条消息最大字符数 |
 | `streaming` | boolean | `true` | 是否启用流式输出（群聊始终不启用） |
@@ -144,11 +144,18 @@ QQ 会话支持通过可点击按钮收集单选答案，也可以回复编号�
 | `/compact` | 压缩会话历史 |
 | `/model` | 查看或切换模型 |
 | `/preset` | 查看或切换 agent preset（新会话生效） |
+| `/persona list` | 查看人格预设及当前对话使用的人格 |
+| `/persona new` | 分两条消息新建人格：先发名称，再发提示词；自动应用到当前对话 |
+| `/persona set <名称>` | 切换当前群或私聊的人格，下一轮重新注入提示词 |
+| `/persona reset` | 当前对话恢复默认土豆小猫人格 |
+| `/persona cancel` | 取消尚未完成的人格创建 |
 | `/stop` | 中止当前生成 |
 | `/bot-ping` | 网络延迟检测 |
 | `/bot-version` | 查看版本信息 |
 | `/bot-status` | 查看当前会话状态 |
 | `/help` | 查看所有指令 |
+
+`/persona new` 后按机器人提示发送人格名称和提示词。群聊需要按群聊的 @ 触发设置发送。人格切换只影响当前群或私聊；新提示词会在该对话的下一轮重新注入。
 
 ## 目录结构
 
