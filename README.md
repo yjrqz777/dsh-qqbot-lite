@@ -123,7 +123,7 @@ Desktop 模式下无需设置 `QQBOT_APPID` 和 `QQBOT_SECRET` 环境变量；�
 | `vision.maxTokens` | number | `1024` | 输出 token 上限 |
 | `vision.timeoutMs` | number | `120000` | 视觉调用超时 (ms) |
 
-开启 `media.enabled` 和 `vision.enabled` 后，QQ 私聊与群聊中的图片会直接作为图像内容发送给 DSH 会话，不再只提供本地文件路径。会话使用的模型需要支持图片输入。`vision.provider` 和 `vision.model` 是 `qqbot_describe_image` 工具所用的视觉模型配置。
+开启 `media.enabled` 和 `vision.enabled` 后，QQ 私聊与群聊中的图片会直接作为图像内容发送给 DSH 会话，不再只提供本地文件路径。插件优先使用已下载的本地图片；本地文件不可用时，会尝试通过 QQ 附件 URL 获取图片，因此网络异常可能导致图片暂时无法显示或识别。会话使用的模型需要支持图片输入。`vision.provider` 和 `vision.model` 是 `qqbot_describe_image` 工具所用的视觉模型配置。
 
 ### sendFile（附件发送）
 
