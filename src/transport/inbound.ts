@@ -123,7 +123,7 @@ export async function handleInbound(
         imageBlocks.push(await attachImage(imagePath));
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
-        logger.warn(`im-qqbot: 群聊图片附加失败: ${reason}`);
+        logger.warn(`im-qqbot: 图片附加失败: ${reason}`);
       }
     }
 
