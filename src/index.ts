@@ -152,6 +152,8 @@ async function bootstrap(ctx: Context, config: ImQQBotFormConfig, logger: Logger
 
   /** 当前生效的网关 fiber；重建前必须销毁，否则旧连接与旧注册会泄漏。 */
   let gateway: { dispose(): void | Promise<void> } | undefined;
+  /** 当前网关使用的配置对象；人格元数据更新时原地同步到 SessionManager。 */
+  let activeRuntimeConfig: ImQQBotConfig | undefined;
   /** 最近一次启动所用的配置签名，用于跳过无变化的重启。 */
   let activeSignature: string | undefined;
   /** 串行化重启：并发的 volatile 事件不会各建一个网关。 */
@@ -166,6 +168,7 @@ async function bootstrap(ctx: Context, config: ImQQBotFormConfig, logger: Logger
     const current = gateway;
     gateway = undefined;
     activeSignature = undefined;
+    activeRuntimeConfig = undefined;
     generation += 1;
     if (current === undefined) return;
     try {
@@ -224,7 +227,17 @@ async function bootstrap(ctx: Context, config: ImQQBotFormConfig, logger: Logger
 
     // Presets are settings-page metadata; saving a preset alone must not restart the QQ socket.
     const signature = JSON.stringify({ ...resolvedConfig, personaPresets: undefined, personaOverrides: undefined, personaPeers: undefined });
-    if (gateway !== undefined && signature === activeSignature) return;
+    if (gateway !== undefined && signature === activeSignature) {
+      // Preset/peer selections do not restart the QQ socket, but must immediately
+      // update the config object already held by the active SessionManager.
+      if (activeRuntimeConfig !== undefined) {
+        activeRuntimeConfig.personaPrompt = resolvedConfig.personaPrompt;
+        activeRuntimeConfig.personaPresets = resolvedConfig.personaPresets;
+        activeRuntimeConfig.personaOverrides = resolvedConfig.personaOverrides;
+        activeRuntimeConfig.personaPeers = resolvedConfig.personaPeers;
+      }
+      return;
+    }
 
     stopGateway();
 
@@ -243,6 +256,7 @@ async function bootstrap(ctx: Context, config: ImQQBotFormConfig, logger: Logger
     /** 本次挂载的代次：旧网关的异步回报按它丢弃。 */
     const mountedGeneration = generation;
     try {
+      activeRuntimeConfig = resolvedConfig;
       gateway = ctx.plugin({
         name: 'im-qqbot-gateway',
         apply: async (child: Context) => {
@@ -265,6 +279,7 @@ async function bootstrap(ctx: Context, config: ImQQBotFormConfig, logger: Logger
       });
     } catch (error) {
       activeSignature = undefined;
+      activeRuntimeConfig = undefined;
       status.set({ state: 'error', appId, error: reason(error) });
       logger.error(`QQ 网关挂载失败（不影响 harness）: ${reason(error)}`);
     }
