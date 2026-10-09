@@ -103,6 +103,8 @@ const CSS = css`
 .dqb-error { color: var(--dsw-alias-state-error-primary); }
 .dqb-group { display: flex; flex-direction: column; gap: 8px; }
 .dqb-group-title { margin: 0; font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-primary); }
+.dqb-credential-link { margin-left: 8px; font-weight: 400; color: var(--dsw-alias-state-business-primary); text-decoration: none; }
+.dqb-credential-link:hover { text-decoration: underline; }
 .dqb-field { display: flex; flex-direction: column; gap: 4px; }
 .dqb-row { display: flex; align-items: center; gap: 12px; min-height: 28px; }
 .dqb-label { flex: 0 0 168px; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
@@ -529,7 +531,16 @@ window.__ModuleLoader__.load({
       const body = snapshot.status !== 'ready'
         ? null
         : GROUPS.map(group => h('section', { className: 'dqb-group', key: group.title },
-          h('h3', { className: 'dqb-group-title' }, group.title),
+          h('h3', { className: 'dqb-group-title' },
+             group.title,
+             group.title === '凭据'
+               ? h('a', {
+                 className: 'dqb-credential-link',
+                 href: 'https://q.qq.com/qqbot/openclaw/login.html',
+                 target: '_blank',
+                 rel: 'noopener noreferrer',
+               }, '获取凭据')
+               : null),
           group.title === '人格配置' ? personaTools : null,
           group.fields.map(field => renderField(field, snapshot, drafts, setDraft, () => setSelectedPreset('自定义')))));
 
