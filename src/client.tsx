@@ -30,7 +30,7 @@ declare const console: { log(...args: unknown[]): void; error(...args: unknown[]
 /** 浏览器全局（只用到这几个，声明出来即可，lib 里没有 DOM）。 */
 declare function fetch(
   input: string,
-  init?: { headers?: Record<string, string> },
+  init?: { method?: string; headers?: Record<string, string>; body?: string },
 ): Promise<{ ok: boolean; json(): Promise<any> }>;
 declare function setInterval(handler: () => void, timeout: number): number;
 declare function clearInterval(handle: number): void;
@@ -67,6 +67,8 @@ const ORDER = 90;
 
 /** 宿主半注册的连接状态路由（文档相对路径，与 src/index.ts 的常量对应）。 */
 const STATUS_ROUTE = 'api/dsh-qqbot/status';
+const CONNECT_ROUTE = 'api/dsh-qqbot/connect';
+const DISCONNECT_ROUTE = 'api/dsh-qqbot/disconnect';
 
 /** 状态轮询间隔(ms)。 */
 const STATUS_POLL_MS = 5000;
@@ -105,11 +107,15 @@ const CSS = css`
 .dqb-row { display: flex; align-items: center; gap: 12px; min-height: 28px; }
 .dqb-label { flex: 0 0 168px; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
 .dqb-dirty { color: var(--dsw-alias-state-business-primary); }
-.dqb-input { flex: 1 1 auto; min-width: 0; min-height: 28px; padding: 4px 8px; font: inherit; font-size: 13px; line-height: 18px; color: inherit; background: transparent; border: 0.5px solid var(--dsw-alias-border-l1); border-radius: 6px; }
+.dqb-input { flex: 1 1 auto; min-width: 0; min-height: 28px; padding: 4px 8px; font: inherit; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-primary, inherit); background: var(--dsw-alias-bg-elevated, rgba(127, 127, 127, 0.14)); border: 1px solid var(--dsw-alias-border-l1); border-radius: 6px; }
 .dqb-input:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
 .dqb-input:disabled { opacity: 0.5; }
 .dqb-textarea { min-height: 56px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .dqb-persona-input { min-height: 120px; font-family: inherit; }
+.dqb-preset-tools { display: flex; gap: 8px; align-items: center; }
+.dqb-preset-name { max-width: 220px; }
+.dqb-preset-select { max-width: 260px; }
+.dqb-preset-save { white-space: nowrap; }
 .dqb-check { flex: 0 0 auto; width: 16px; height: 16px; }
 .dqb-hint { margin: 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 `;
@@ -158,7 +164,7 @@ const GROUPS: FieldGroup[] = [
   {
     title: '人格配置',
     fields: [
-      { path: ['personaPrompt'], label: '人格提示词', kind: 'textarea', hint: '对私聊和群聊都生效；每轮对话都会作为系统提示词注入。支持多行。' },
+      { path: ['personaPrompt'], label: '人格提示词', kind: 'textarea', hint: '对每个私聊和群聊会话的首轮生效。支持多行。' },
     ],
   },
   {
@@ -321,6 +327,7 @@ window.__ModuleLoader__.load({
       snapshot: any,
       drafts: Record<string, any>,
       setDraft: (key: string, value: unknown) => void,
+      onPersonaEdit: () => void,
     ): any {
       const key = draftKey(field.path);
       const edited = Object.prototype.hasOwnProperty.call(drafts, key);
@@ -350,7 +357,7 @@ window.__ModuleLoader__.load({
           className: 'dqb-input',
           value: text,
           disabled,
-          onChange: (event: any) => { setDraft(key, event.target.value); },
+          onChange: (event: any) => { if (key === 'personaPrompt') onPersonaEdit(); setDraft(key, event.target.value); },
         }, (field.options ?? []).map(option => h('option', { key: option, value: option }, option))));
       }
 
@@ -361,7 +368,7 @@ window.__ModuleLoader__.load({
           value: text,
           disabled,
           spellCheck: false,
-          onChange: (event: any) => { setDraft(key, event.target.value); },
+          onChange: (event: any) => { if (key === 'personaPrompt') onPersonaEdit(); setDraft(key, event.target.value); },
         }));
       }
 
@@ -373,7 +380,7 @@ window.__ModuleLoader__.load({
         disabled,
         spellCheck: false,
         autoComplete: 'off',
-        onChange: (event: any) => { setDraft(key, event.target.value); },
+        onChange: (event: any) => { if (key === 'personaPrompt') onPersonaEdit(); setDraft(key, event.target.value); },
       }));
     }
 
@@ -388,6 +395,9 @@ window.__ModuleLoader__.load({
       const [drafts, setDrafts] = React.useState({} as Record<string, any>);
       const [saveState, setSaveState] = React.useState({ status: 'idle', message: '' } as { status: string; message: string });
       const [link, setLink] = React.useState({ state: 'unknown', appId: '', error: null } as { state: string; appId?: string; error?: string | null });
+      const [selectedPreset, setSelectedPreset] = React.useState('自定义');
+      const [presetName, setPresetName] = React.useState('');
+      const [connectionBusy, setConnectionBusy] = React.useState(false);
 
       // 连接状态轮询：宿主半的 /api/dsh-qqbot/status。
       // 路由不存在（宿主没装 connection 服务）时一直是「状态未知」，不影响配置。
@@ -412,8 +422,58 @@ window.__ModuleLoader__.load({
         setSaveState({ status: 'idle', message: '' });
       };
 
-      const dirtyKeys = Object.keys(drafts);
       const saving = saveState.status === 'saving';
+      const dirtyKeys = Object.keys(drafts);
+      const personaPresets = Array.isArray(snapshot.value.personaPresets) ? snapshot.value.personaPresets : [];
+      const selectedPrompt = Object.prototype.hasOwnProperty.call(drafts, 'personaPrompt')
+        ? String(drafts.personaPrompt ?? '')
+        : String(snapshot.value.personaPrompt ?? '');
+      const onToggleConnection = async (): Promise<void> => {
+        if (connectionBusy) return;
+        const disconnect = link.state === 'connected';
+        setConnectionBusy(true);
+        try {
+          const response = await fetch(disconnect ? DISCONNECT_ROUTE : CONNECT_ROUTE, { method: 'POST', headers: { accept: 'application/json' } });
+          if (!response.ok) throw new Error('连接操作失败');
+          const body = await response.json();
+          if (body && typeof body === 'object') setLink(body);
+        } catch (error: unknown) {
+          setLink({ state: 'error', error: error instanceof Error ? error.message : String(error) });
+        } finally { setConnectionBusy(false); }
+      };
+      const onSavePreset = async (): Promise<void> => {
+        const name = presetName.trim();
+        if (!name || !selectedPrompt.trim()) {
+          setSaveState({ status: 'error', message: '请填写预设名称和人格提示词' });
+          return;
+        }
+        const nextPresets = [...personaPresets.filter((item: any) => item.name !== name), { name, prompt: selectedPrompt }];
+        setSaveState({ status: 'saving', message: '保存预设中…' });
+        const accepted = await save([
+          { op: 'set', path: ['personaPresets'], value: nextPresets },
+          { op: 'set', path: ['personaPrompt'], value: selectedPrompt },
+        ]);
+        if (accepted) {
+          setDrafts((current: Record<string, any>) => { const next = { ...current }; delete next.personaPrompt; return next; });
+          setSelectedPreset(name);
+          setPresetName('');
+          setSaveState({ status: 'saved', message: '预设已保存' });
+        } else setSaveState({ status: 'error', message: '预设保存失败，见下方提示' });
+      };
+      const personaTools = h('div', { className: 'dqb-preset-tools' },
+        h('select', {
+          className: 'dqb-input dqb-preset-select', value: selectedPreset,
+          disabled: snapshot.status !== 'ready' || snapshot.writable !== true,
+          onChange: (event: any) => {
+            const name = event.target.value;
+            setSelectedPreset(name);
+            if (name === '自定义') return;
+            const preset = personaPresets.find((item: any) => item.name === name);
+            if (preset) setDraft('personaPrompt', preset.prompt);
+          },
+        }, [h('option', { key: 'custom', value: '自定义' }, '自定义'), ...personaPresets.map((item: any) => h('option', { key: item.name, value: item.name }, item.name))]),
+        h('input', { className: 'dqb-input dqb-preset-name', type: 'text', value: presetName, placeholder: '预设名称', disabled: snapshot.status !== 'ready' || snapshot.writable !== true, onChange: (event: any) => setPresetName(event.target.value) }),
+        h('button', { className: 'dqb-button dqb-preset-save', type: 'button', disabled: saving || snapshot.status !== 'ready' || snapshot.writable !== true, onClick: () => { void onSavePreset(); } }, '保存预设'));
 
       /** 把所有草稿合成一次 mutate；任一项不合法就整体不提交。 */
       const onSave = async (): Promise<void> => {
@@ -449,6 +509,11 @@ window.__ModuleLoader__.load({
           h('span', { className: `dqb-dot dqb-dot-${link.state}` }),
           h('span', null, `${view.text}${detail}`)),
         linkError === '' ? null : h('span', { className: 'dqb-status-detail' }, linkError),
+        h('button', {
+          className: 'dqb-button dqb-button-primary', type: 'button',
+          disabled: connectionBusy || link.state === 'starting' || link.state === 'unknown' || link.state === 'unconfigured',
+          onClick: () => { void onToggleConnection(); },
+        }, connectionBusy || link.state === 'starting' ? '连接中…' : (link.state === 'connected' ? '断开连接' : '连接')),
         h('span', { className: 'dqb-spacer' }),
         saveState.message === '' ? null : h('span', { className: `dqb-save dqb-save-${saveState.status}` }, saveState.message),
         h('button', {
@@ -468,7 +533,8 @@ window.__ModuleLoader__.load({
         ? null
         : GROUPS.map(group => h('section', { className: 'dqb-group', key: group.title },
           h('h3', { className: 'dqb-group-title' }, group.title),
-          group.fields.map(field => renderField(field, snapshot, drafts, setDraft))));
+          group.title === '人格配置' ? personaTools : null,
+          group.fields.map(field => renderField(field, snapshot, drafts, setDraft, () => setSelectedPreset('自定义')))));
 
       const notice = snapshot.status === 'loading'
         ? h('p', { className: 'dqb-notice' }, '正在读取配置…')

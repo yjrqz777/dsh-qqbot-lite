@@ -65,9 +65,11 @@ async function bootstrap(ctx: Context, config: ImQQBotFormConfig, logger: Logger
   /** 进程内连接状态，供设置页顶部的状态圆点读取。 */
   const status = new QqbotStatus();
 
-  // 连接状态查询路由：浏览器半轮询它画状态点。
+  // 连接状态查询与手动连接/断开接口，供设置页状态和按钮使用。
   // `connection` 只存在于 GUI 组合；缺失或注册失败都只是状态点不可用（灰点），
   // 不影响插件本身运行。
+  let connectionEnabled = true;
+  let requestConnection: (connect: boolean) => Promise<void> = async () => {};
   try {
     ctx.inject(['connection'], (connectionCtx) => {
       const connection = (connectionCtx as unknown as Record<string, unknown>).connection as
@@ -84,6 +86,20 @@ async function bootstrap(ctx: Context, config: ImQQBotFormConfig, logger: Logger
           })),
         }),
         'im-qqbot: status route',
+      );
+      connectionCtx.effect(
+        () => connection.fetch.register({
+          path: 'api/dsh-qqbot/connect', methods: ['POST'], requestBody: 'buffered',
+          fetch: async () => { await requestConnection(true); return Response.json(status.get()); },
+        }),
+        'im-qqbot: connect route',
+      );
+      connectionCtx.effect(
+        () => connection.fetch.register({
+          path: 'api/dsh-qqbot/disconnect', methods: ['POST'], requestBody: 'buffered',
+          fetch: async () => { await requestConnection(false); return Response.json(status.get()); },
+        }),
+        'im-qqbot: disconnect route',
       );
     });
   } catch (error) {
@@ -139,6 +155,11 @@ async function bootstrap(ctx: Context, config: ImQQBotFormConfig, logger: Logger
    * @param allowQrSetup 凭据缺失时是否允许后台唤起扫码绑定；只有首次 apply 允许。
    */
   const startGateway = async (allowQrSetup: boolean): Promise<void> => {
+    if (!connectionEnabled) {
+      stopGateway();
+      status.set({ state: 'stopped', error: null });
+      return;
+    }
     const values = resolveConfigValues(config);
     const appId = resolveEnv(values.appId, 'QQBOT_APPID').trim();
     const appSecret = resolveEnv(values.appSecret, 'QQBOT_SECRET').trim();
@@ -217,6 +238,18 @@ async function bootstrap(ctx: Context, config: ImQQBotFormConfig, logger: Logger
       status.set({ state: 'error', appId, error: reason(error) });
       logger.error(`QQ 网关挂载失败（不影响 harness）: ${reason(error)}`);
     }
+  };
+
+  requestConnection = async (connect: boolean): Promise<void> => {
+    connectionEnabled = connect;
+    pending = pending.then(async () => {
+      if (connect) await startGateway(false);
+      else {
+        stopGateway();
+        status.set({ state: 'stopped', error: null });
+      }
+    });
+    await pending;
   };
 
   await startGateway(true);

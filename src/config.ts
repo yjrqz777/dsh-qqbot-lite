@@ -128,6 +128,7 @@ export interface ImQQBotFormConfig {
   cwd: Volatile<string | undefined>;
   requireMention: Volatile<boolean>;
   personaPrompt: Volatile<string>;
+  personaPresets: Volatile<Array<{ name: string; prompt: string }>>;
   groupPrompt: Volatile<string | undefined>;
   directPrompt: Volatile<string | undefined>;
   textChunkLimit: Volatile<number>;
@@ -177,6 +178,7 @@ export const ConfigSchema = Schema.object({
   cwd: Schema.string().default(DEFAULT_QQBOT_CWD).description('Agent working directory（QQ 会话专属目录，GUI 里显示为「未分组」）').volatile(),
   requireMention: Schema.boolean().default(true).description('群聊是否需要@bot触发').volatile(),
   personaPrompt: Schema.string().default('').description('所有 QQ 会话共用的人格提示词').volatile(),
+  personaPresets: Schema.array(Schema.object({ name: Schema.string(), prompt: Schema.string() })).default([]).description('人格提示词预设').volatile(),
   groupPrompt: Schema.string().description('群聊额外system prompt').volatile(),
   directPrompt: Schema.string().description('私聊额外system prompt').volatile(),  textChunkLimit: Schema.number().default(4500).description('单条消息最大字符数').volatile(),
   streaming: Schema.boolean().default(true).description('是否启用流式输出（群聊始终不启用）').volatile(),
