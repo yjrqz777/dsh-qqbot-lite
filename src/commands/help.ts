@@ -33,7 +33,7 @@ export function helpCommand(
         return out;
       };
 
-      const lines: string[] = ['### 🤖 QQBot 指令', ''];
+      const lines: string[] = ['### 🤖 QQBot 指令', '', '点击命令可直接执行；点击 `/persona` 可打开人格操作菜单，再选择 `list` 或 `new`。', ''];
 
       if (agentCmds.length > 0) {
         lines.push('**通用能力**', '', ...render(agentCmds), '');
