@@ -81,7 +81,9 @@ const css = (strings: TemplateStringsArray): string => strings.join('');
  * 颜色只在状态点上写死（用户要求的绿点），其余用 --dsw-alias-* 主题 token。
  */
 const CSS = css`
-.dqb-page { display: flex; flex-direction: column; gap: 16px; max-width: 760px; padding: 0 0 24px; }
+.dqb-page { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 760px; max-height: calc(100vh - 72px); padding: 0 0 24px; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.dqb-page::-webkit-scrollbar, .dqb-page *::-webkit-scrollbar { display: none; }
+.dqb-page * { scrollbar-width: none; }
 .dqb-sticky-header { position: sticky; top: 0; z-index: 10; display: flex; flex-direction: column; background: var(--dsw-alias-bg-base, #fff); }
 .dqb-toolbar { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 0; background: var(--dsw-alias-bg-base, #fff); border-bottom: 0.5px solid var(--dsw-alias-border-l1); }
 .dqb-status { display: flex; align-items: center; gap: 6px; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
@@ -102,13 +104,17 @@ const CSS = css`
 .dqb-meta { margin: 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 .dqb-notice { margin: 0; padding: 8px 10px; font-size: 12px; line-height: 18px; border: 0.5px solid var(--dsw-alias-border-l1); border-radius: 8px; color: var(--dsw-alias-label-secondary); }
 .dqb-error { color: var(--dsw-alias-state-error-primary); }
-.dqb-category-tabs { display: flex; gap: 22px; overflow-x: auto; min-height: 42px; border-bottom: 1px solid var(--dsw-alias-border-l1); scrollbar-width: thin; }
+.dqb-category-tabs { display: flex; flex-wrap: wrap; gap: 0 22px; min-height: 42px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
 .dqb-category-tab { position: relative; flex: 0 0 auto; padding: 10px 2px 9px; font: inherit; font-size: 13px; color: var(--dsw-alias-label-secondary); background: transparent; border: 0; cursor: pointer; }
 .dqb-category-tab:hover { color: var(--dsw-alias-label-primary); }
 .dqb-category-tab-active { color: var(--dsw-alias-label-primary); font-weight: 600; }
 .dqb-category-tab-active::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: var(--dsw-alias-state-business-primary); content: ''; }
 .dqb-group { display: flex; flex-direction: column; gap: 12px; padding: 8px 0; }
 .dqb-group-title { margin: 0; font-size: 16px; font-weight: 600; color: var(--dsw-alias-label-primary); }
+.dqb-about { display: grid; gap: 12px; max-width: 560px; padding: 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; }
+.dqb-about p { margin: 0; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 20px; }
+.dqb-about a { color: var(--dsw-alias-state-business-primary); text-decoration: none; }
+.dqb-about a:hover { text-decoration: underline; }
 .dqb-credential-link { margin-left: 8px; font-weight: 400; color: var(--dsw-alias-state-business-primary); text-decoration: none; }
 .dqb-credential-link:hover { text-decoration: underline; }
 .dqb-field { display: flex; flex-direction: column; gap: 4px; }
@@ -146,20 +152,16 @@ interface FieldSpec {
 interface FieldGroup {
   readonly title: string;
   readonly fields: FieldSpec[];
+  readonly about?: boolean;
 }
 
 /** 页面字段清单（与 src/config.ts 的 volatile 字段一一对应）。 */
 const GROUPS: FieldGroup[] = [
   {
-    title: '凭据',
+    title: '凭据与会话',
     fields: [
       { path: ['appId'], label: 'AppID', kind: 'text', hint: 'QQ Bot 的数字 AppID。' },
       { path: ['appSecret'], label: 'AppSecret', kind: 'text', hint: '明文保存并回显；填错会导致连不上。' },
-    ],
-  },
-  {
-    title: '模型与会话',
-    fields: [
       { path: ['provider'], label: 'LLM provider', kind: 'text', hint: '留空表示继承宿主默认模型路由。' },
       { path: ['model'], label: '模型', kind: 'text' },
       { path: ['preset'], label: 'Agent preset', kind: 'text' },
@@ -182,16 +184,11 @@ const GROUPS: FieldGroup[] = [
     ],
   },
   {
-    title: '触发与提示词',
+    title: '触发与访问控制',
     fields: [
       { path: ['requireMention'], label: '群聊需 @bot', kind: 'boolean' },
       { path: ['groupPrompt'], label: '群聊额外 prompt', kind: 'text' },
       { path: ['directPrompt'], label: '私聊额外 prompt', kind: 'text' },
-    ],
-  },
-  {
-    title: '访问控制',
-    fields: [
       { path: ['access', 'c2cMode'], label: '私聊模式', kind: 'select', options: ['open', 'allowlist', 'disabled'] },
       { path: ['access', 'c2cAllow'], label: '私聊白名单', kind: 'list', hint: 'user openid，逗号或换行分隔。' },
       { path: ['access', 'groupMode'], label: '群聊模式', kind: 'select', options: ['open', 'allowlist', 'disabled'] },
@@ -199,16 +196,11 @@ const GROUPS: FieldGroup[] = [
     ],
   },
   {
-    title: '富媒体理解',
+    title: '媒体理解',
     fields: [
       { path: ['media', 'enabled'], label: '启用富媒体', kind: 'boolean' },
       { path: ['media', 'maxMB'], label: '下载上限（MB）', kind: 'number' },
       { path: ['media', 'ttlHours'], label: '存活时长（小时）', kind: 'number', hint: '0 表示永不过期。' },
-    ],
-  },
-  {
-    title: '视觉理解',
-    fields: [
       { path: ['vision', 'enabled'], label: '启用视觉理解', kind: 'boolean' },
       { path: ['vision', 'provider'], label: '视觉 provider', kind: 'text' },
       { path: ['vision', 'model'], label: '视觉模型', kind: 'text' },
@@ -224,6 +216,11 @@ const GROUPS: FieldGroup[] = [
       { path: ['sendFile', 'restrictPaths'], label: '启用路径白名单', kind: 'boolean' },
       { path: ['sendFile', 'extraRoots'], label: '额外根目录', kind: 'list', hint: '每行一个绝对路径。' },
     ],
+  },
+  {
+    title: '关于',
+    fields: [],
+    about: true,
   },
 ];
 
@@ -607,6 +604,15 @@ window.__ModuleLoader__.load({
                  rel: 'noopener noreferrer',
                }, '获取凭据')
                : null),
+          activeGroup.about
+            ? h('div', { className: 'dqb-about' },
+              h('p', null, h('strong', null, '插件：'), 'dsh-qqbot-lite'),
+              h('p', null, h('strong', null, '版本：'), '1.0.0'),
+              h('p', null, '本项目基于腾讯 dsh-qqbot v0.5.0 二次开发。'),
+              h('p', null, h('strong', null, '开源协议：'), 'MIT'),
+              h('p', null, h('strong', null, '项目地址：'), h('a', { href: 'https://github.com/yjrqz777/dsh-qqbot-lite', target: '_blank', rel: 'noopener noreferrer' }, 'GitHub'))
+            )
+            : null,
           activeGroup.title === '人格配置' ? personaTools : null,
           activeGroup.fields.map(field => renderField(field, snapshot, drafts, setDraft, () => setSelectedPreset('自定义'))),
           activeGroup.title === '人格配置' ? personaPeerTools : null);
