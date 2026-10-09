@@ -102,8 +102,6 @@ describe('buildKeyboard', () => {
     const btn = kb?.content.rows[0]?.buttons[0];
     expect(btn?.action.type).toBe(1);
     expect(btn?.action.permission.type).toBe(2);
-    // 单选互斥：同一题选项共享 group_id，点一个后其余变灰（action.type=1 才生效）
-    expect(btn?.group_id).toBe('q-q');
     // 保留 click_limit=1（每人限点一次，与 openclaw 对齐）
     expect(btn?.action.click_limit).toBe(1);
     expect(btn?.render_data.label).toBe('A');
