@@ -87,7 +87,7 @@ npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot-lite/cordis.dev.yml
 | `groupPrompt` | string | - | Extra system prompt for group chats |
 | `directPrompt` | string | - | Extra system prompt for direct chats |
 | `personaPrompt` | string | empty | Custom persona prompt shared by group and direct chats; editable as multiline text in settings |
-| `personaPresets` | object[] | `[]` | Persona presets saved from the settings page |
+| `personaPresets` | object[] | built-in `苏晴` | Persona presets saved from settings; `自定义` starts with a blank prompt |
 | `textChunkLimit` | number | `4500` | Max chars per message |
 | `streaming` | boolean | `true` | Enable streaming output (always disabled in groups) |
 | `sessionIdleTimeout` | number | `1800000` | Session idle timeout (ms), default 30 min |
@@ -147,7 +147,7 @@ All QQ Bot settings, including AppID, AppSecret, model, access control, persona 
 | `/bot-ping` | Network latency test (transport & processing time) |
 | `/bot-version` | View version info |
 | `/bot-status` | View current session status |
-| `/bot-help` | View all commands |
+| `/help` | View all commands |
 
 ## Core Modules
 

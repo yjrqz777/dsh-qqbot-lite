@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { getProfileDir } from './shared/utils.ts';
-import type { ImQQBotConfig } from './config.ts';
+import { DEFAULT_PERSONA_PRESET, type ImQQBotConfig } from './config.ts';
 
 const FILE_NAME = 'dsh-qqbot-settings.json';
 let cachedPath: string | undefined;
@@ -38,7 +38,13 @@ function normalize(value: unknown, defaults: ImQQBotConfig): ImQQBotConfig {
   if (result.personaPrompt !== undefined && typeof result.personaPrompt !== 'string') {
     throw new Error('人格提示词必须是文本');
   }
-  if (!Array.isArray(result.personaPresets)) result.personaPresets = [];
+  const presets = Array.isArray(result.personaPresets)
+    ? result.personaPresets.filter((item) => item !== null && typeof item === 'object'
+      && typeof item.name === 'string' && typeof item.prompt === 'string')
+    : [];
+  result.personaPresets = presets.some((item) => item.name === DEFAULT_PERSONA_PRESET.name)
+    ? presets
+    : [{ ...DEFAULT_PERSONA_PRESET }, ...presets];
   return result;
 }
 
@@ -51,7 +57,12 @@ export function loadPluginSettings(defaults: ImQQBotConfig, profileDir?: string)
   const path = settingsPath(profileDir);
   if (cachedPath === path && cachedValue !== undefined) return copy(cachedValue);
   if (existsSync(path)) {
-    cachedValue = normalize(JSON.parse(readFileSync(path, 'utf8')), defaults);
+    const stored = JSON.parse(readFileSync(path, 'utf8'));
+    const normalized = normalize(stored, defaults);
+    if (JSON.stringify(stored) !== JSON.stringify(normalized)) {
+      return savePluginSettings(normalized, defaults, profileDir);
+    }
+    cachedValue = normalized;
     cachedPath = path;
     return copy(cachedValue);
   }

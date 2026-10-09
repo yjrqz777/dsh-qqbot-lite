@@ -377,7 +377,12 @@ window.__ModuleLoader__.load({
           .then(async response => {
             const value = await response.json();
             if (!response.ok) throw new Error(value?.error ?? '读取设置失败');
-            if (alive) setSnapshot({ status: 'ready', value, writable: true, mode: 'profile-file', revision: 0, error: null });
+            if (alive) {
+              setSnapshot({ status: 'ready', value, writable: true, mode: 'profile-file', revision: 0, error: null });
+              const activePreset = (Array.isArray(value.personaPresets) ? value.personaPresets : [])
+                .find((item: any) => item.prompt === String(value.personaPrompt ?? ''));
+              setSelectedPreset(activePreset?.name ?? '自定义');
+            }
           })
           .catch((error: unknown) => {
             if (alive) setSnapshot((current: any) => ({ ...current, status: 'unavailable', error: error instanceof Error ? error.message : String(error) }));
@@ -438,13 +443,13 @@ window.__ModuleLoader__.load({
         try {
           const next = JSON.parse(JSON.stringify(snapshot.value));
           setAtPath(next, ['personaPresets'], nextPresets);
-          setAtPath(next, ['personaPrompt'], selectedPrompt);
           const saved = await persistSettings(next);
           setSnapshot({ ...snapshot, status: 'ready', value: saved, writable: true, error: null });
-          setDrafts((current: Record<string, any>) => { const nextDrafts = { ...current }; delete nextDrafts.personaPrompt; return nextDrafts; });
           setSelectedPreset(name);
           setPresetName('');
-          setSaveState({ status: 'saved', message: '预设已保存' });
+          setSaveState({ status: 'saved', message: selectedPrompt === String(snapshot.value.personaPrompt ?? '')
+            ? '预设已保存（未应用到机器人）'
+            : '预设已保存；点击“保存”后应用人格配置' });
         } catch (error: unknown) {
           setSaveState({ status: 'error', message: error instanceof Error ? error.message : String(error) });
         }
@@ -456,7 +461,7 @@ window.__ModuleLoader__.load({
           onChange: (event: any) => {
             const name = event.target.value;
             setSelectedPreset(name);
-            if (name === '自定义') return;
+            if (name === '自定义') { setDraft('personaPrompt', ''); return; }
             const preset = personaPresets.find((item: any) => item.name === name);
             if (preset) setDraft('personaPrompt', preset.prompt);
           },

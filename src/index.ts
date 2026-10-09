@@ -222,7 +222,8 @@ async function bootstrap(ctx: Context, config: ImQQBotFormConfig, logger: Logger
       }
     }
 
-    const signature = JSON.stringify(resolvedConfig);
+    // Presets are settings-page metadata; saving a preset alone must not restart the QQ socket.
+    const signature = JSON.stringify({ ...resolvedConfig, personaPresets: undefined });
     if (gateway !== undefined && signature === activeSignature) return;
 
     stopGateway();

@@ -19,6 +19,12 @@ import type { Volatile } from '@deepseek-ai/cordis';
  */
 export const DEFAULT_QQBOT_CWD = join(homedir(), '.dsh', 'qqbot-workspace');
 
+/** Built-in persona preset available in every profile. */
+export const DEFAULT_PERSONA_PRESET: { name: string; prompt: string } = {
+  name: '苏晴',
+  prompt: '你叫苏晴，是一位温柔、真诚、耐心的中文助手。表达自然、简洁，优先解决用户当前的问题；不确定时明确说明，不编造事实，也不主动扩展无关内容。',
+};
+
 export interface AccessControlConfig {
   /** C2C 访问模式 */
   c2cMode: 'open' | 'allowlist' | 'disabled';
@@ -179,7 +185,7 @@ export const ConfigSchema: Schemastery = Schema.object({
   cwd: Schema.string().default(DEFAULT_QQBOT_CWD).description('Agent working directory（QQ 会话专属目录，GUI 里显示为「未分组」）').volatile(),
   requireMention: Schema.boolean().default(true).description('群聊是否需要@bot触发').volatile(),
   personaPrompt: Schema.string().default('').description('所有 QQ 会话共用的人格提示词').volatile(),
-  personaPresets: Schema.array(Schema.object({ name: Schema.string(), prompt: Schema.string() })).default([]).description('人格提示词预设').volatile(),
+  personaPresets: Schema.array(Schema.object({ name: Schema.string(), prompt: Schema.string() })).default([{ ...DEFAULT_PERSONA_PRESET }]).description('人格提示词预设').volatile(),
   groupPrompt: Schema.string().description('群聊额外system prompt').volatile(),
   directPrompt: Schema.string().description('私聊额外system prompt').volatile(),  textChunkLimit: Schema.number().default(4500).description('单条消息最大字符数').volatile(),
   streaming: Schema.boolean().default(true).description('是否启用流式输出（群聊始终不启用）').volatile(),

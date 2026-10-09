@@ -44,7 +44,7 @@ npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot-lite/cordis.dev.yml
 | `groupPrompt` | string | - | 群聊额外 system prompt |
 | `directPrompt` | string | - | 私聊额外 system prompt |
 | `personaPrompt` | string | 空 | 对私聊和群聊统一生效的人格提示词，可在设置页多行编辑 |
-| `personaPresets` | object[] | `[]` | 设置页保存的人格预设 |
+| `personaPresets` | object[] | 内置「苏晴」 | 设置页保存的人格预设；自定义时可以选空白的「自定义」项 |
 | `textChunkLimit` | number | `4500` | 单条消息最大字符数 |
 | `streaming` | boolean | `true` | 是否启用流式输出（群聊始终不启用） |
 | `sessionIdleTimeout` | number | `1800000` | 会话闲置超时 (ms) |
@@ -97,7 +97,7 @@ QQ Bot 全部设置（包括 AppID、AppSecret、模型、权限、人格提示�
 | `/bot-ping` | 网络延迟检测 |
 | `/bot-version` | 查看版本信息 |
 | `/bot-status` | 查看当前会话状态 |
-| `/bot-help` | 查看所有指令 |
+| `/help` | 查看所有指令 |
 
 ## 目录结构
 
