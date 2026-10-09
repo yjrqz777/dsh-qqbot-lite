@@ -81,7 +81,7 @@ const css = (strings: TemplateStringsArray): string => strings.join('');
  * 颜色只在状态点上写死（用户要求的绿点），其余用 --dsw-alias-* 主题 token。
  */
 const CSS = css`
-.dqb-page { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 760px; max-height: calc(100vh - 72px); padding: 0 0 24px; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.dqb-page { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 760px; max-height: calc(100vh - 140px); padding: 0 0 24px; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
 .dqb-page::-webkit-scrollbar, .dqb-page *::-webkit-scrollbar { display: none; }
 .dqb-page * { scrollbar-width: none; }
 .dqb-sticky-header { position: sticky; top: 0; z-index: 10; display: flex; flex-direction: column; background: var(--dsw-alias-bg-base, #fff); }
@@ -596,7 +596,7 @@ window.__ModuleLoader__.load({
         : h('section', { className: 'dqb-group', key: activeGroup.title },
           h('h3', { className: 'dqb-group-title' },
              activeGroup.title,
-             activeGroup.title === '凭据'
+             activeGroup.title === '凭据与会话'
                ? h('a', {
                  className: 'dqb-credential-link',
                  href: 'https://q.qq.com/qqbot/openclaw/login.html',
