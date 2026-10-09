@@ -97,6 +97,11 @@ export async function handleInbound(
 
   const scope: ChatScope = msg.kind === 'group' ? 'group' : 'c2c';
   const peerId = scope === 'group' ? (msg.groupOpenid ?? msg.senderId) : msg.senderId;
+  const shortId = peerId.slice(0, 8);
+  const peerLabel = scope === 'group'
+    ? String(msg.groupName ?? msg.group_name ?? `群聊 ${shortId}`)
+    : (msg.senderName?.trim() || `好友 ${shortId}`);
+  manager.rememberPersonaPeer(scope, peerId, peerLabel);
 
   const replyTarget: ReplyTarget = {
     scope,
