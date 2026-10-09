@@ -6,6 +6,8 @@
 
 > This project is further developed from Tencent Connect's open-source [`@tencent-connect/dsh-qqbot`](https://github.com/tencent-connect/dsh-qqbot) v0.5.0.
 
+> Only dsh Desktop mode has been tested; other runtime modes have not been tested.
+
 [![npm version](https://img.shields.io/npm/v/@yjrqz777/dsh-qqbot-lite)](https://www.npmjs.com/package/@yjrqz777/dsh-qqbot-lite)
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/yjrqz777/dsh-qqbot-lite)](https://github.com/yjrqz777/dsh-qqbot-lite)
@@ -45,45 +47,55 @@ QQ User → QQ WebSocket → dsh-qqbot → ctx.agents → dsh agent loop → LLM
                                        (assistant reply → QQ sendMarkdown)
 ```
 
-## Installation
+## Installation (Desktop)
 
-### Method 1: Manual
+> This project has only been tested with dsh Desktop. CLI, `--patch`, and other runtime modes have not been tested.
 
-```bash
-# Add to a profile
-npx @deepseek-ai/dsh plugin --profile qqbot add @yjrqz777/dsh-qqbot-lite
+### Prerequisites
 
-# Start
-npx @deepseek-ai/dsh --profile qqbot
-```
+Install Git, Node.js 18 or later, pnpm, and dsh Desktop.
 
-On first launch, the plugin detects missing credentials and automatically starts the QR flow: a QR code is printed in the terminal → scan it with the QQ mobile app → credentials are saved to the profile, so subsequent launches require no re-scan.
-
-<img src="./docs/assets/qrcode.png" alt="QR code scan example" width="280" />
-
-> **Note**: Upgrade to `0.4.0` or later for browser-link scanning, which avoids QR code misalignment in some terminals.
-
-### Method 2: Local path
+### 1. Clone the repository
 
 ```bash
-# Build
-cd /path/to/dsh-qqbot-lite
-pnpm install && pnpm build
-
-# Add to a profile (local path)
-npx @deepseek-ai/dsh plugin --profile qqbot add /path/to/dsh-qqbot-lite
-
-# Start
-export QQBOT_APPID="yourAppID" QQBOT_SECRET="yourAppSecret"
-npx @deepseek-ai/dsh --profile qqbot
+git clone https://github.com/yjrqz777/dsh-qqbot-lite.git
+cd dsh-qqbot-lite
 ```
 
-### Method 3: --patch dev mode
+### 2. Install dependencies
 
 ```bash
-export QQBOT_APPID="yourAppID" QQBOT_SECRET="yourAppSecret"
-npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot-lite/cordis.dev.yml
+pnpm install
 ```
+
+If pnpm reports `ERR_PNPM_TARBALL_URL_MISMATCH`, rebuild the lockfile as suggested by pnpm, then install again:
+
+```bash
+pnpm clean --lockfile
+pnpm install
+```
+
+### 3. Build the plugin
+
+```bash
+pnpm build
+```
+
+This creates the `dist` directory in the project root.
+
+### 4. Install it in Desktop
+
+1. Open dsh Desktop and go to **Plugins**.
+2. Enter the path to the cloned project root (the directory containing `package.json`).
+3. Click **Install**.
+
+Example: `D:\code\dsh-qqbot-lite`.
+
+### 5. Configure QQ Bot
+
+After installation, open **Settings → QQ Bot**, enter the AppID and AppSecret, then save and connect. You can also click **Get credentials** to open the QQ Bot website.
+
+Desktop does not require the `QQBOT_APPID` or `QQBOT_SECRET` environment variables. Without credentials, Desktop and dsh still start; only the QQ Bot remains unconnected.
 
 ## Configuration
 
@@ -229,18 +241,9 @@ Resolution strategy: in-process reuse → persisted resume → fresh create.
 ## Local Development
 
 ```bash
-# Install dependencies
 pnpm install
-
-# Build
 pnpm build
-
-# Dev mode (watch)
-pnpm dev
-
-# Debug via --patch
-export QQBOT_APPID="xxx" QQBOT_SECRET="xxx"
-npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot-lite/cordis.dev.yml
+pnpm test
 ```
 
 ## License and Third-Party Content

@@ -23,24 +23,55 @@ QQ 用户 -> QQ WebSocket -> dsh-qqbot -> ctx.agents -> dsh agent loop -> LLM
 </tr>
 </table>
 
-## 安装
+## 安装（Desktop 桌面端）
+
+> 本项目目前仅在 dsh Desktop 桌面端模式下测试；命令行、`--patch` 等其他运行模式尚未测试。
+
+### 准备环境
+
+安装 Git、Node.js 18 或更高版本、pnpm，以及 dsh Desktop。
+
+### 1. 克隆项目
 
 ```bash
-# 安装到 profile
-npx @deepseek-ai/dsh plugin --profile qqbot add @yjrqz777/dsh-qqbot-lite
-
-# 启动（首次启动检测到凭据未配置会进入扫码绑定）
-npx @deepseek-ai/dsh --profile qqbot
+git clone https://github.com/yjrqz777/dsh-qqbot-lite.git
+cd dsh-qqbot-lite
 ```
 
-本地开发调试：
+### 2. 安装依赖
 
 ```bash
-pnpm install && pnpm build
-
-export QQBOT_APPID="你的AppID" QQBOT_SECRET="你的AppSecret"
-npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot-lite/cordis.dev.yml
+pnpm install
 ```
+
+如果遇到 `ERR_PNPM_TARBALL_URL_MISMATCH` 锁文件校验错误，可按 pnpm 提示重建锁文件后重装：
+
+```bash
+pnpm clean --lockfile
+pnpm install
+```
+
+### 3. 构建插件
+
+```bash
+pnpm build
+```
+
+构建完成后，项目根目录会生成 `dist` 目录。
+
+### 4. 在 Desktop 中安装
+
+1. 打开 dsh Desktop，进入 **插件** 页面。
+2. 输入刚才克隆的项目根目录路径（该目录中应有 `package.json`）。
+3. 点击 **安装**。
+
+例如：`D:\code\dsh-qqbot-lite`。
+
+### 5. 设置 QQ Bot 凭据
+
+安装后进入 **设置 → QQ Bot**，填写 AppID 和 AppSecret，点击保存并连接。也可以点击“获取凭据”前往 QQ 机器人官网。
+
+Desktop 模式下无需设置 `QQBOT_APPID` 和 `QQBOT_SECRET` 环境变量；未填写凭据时，Desktop 和 dsh 本体仍可启动，只是 QQ Bot 保持未连接。
 
 ## 配置项
 
@@ -137,9 +168,8 @@ sessionKey 为 `qqbot:${appId}:${scope}:${peerId}`，由 SHA-256 确定性派生
 
 ```bash
 pnpm install
-pnpm build     # tsc
-pnpm dev       # tsc --watch
-pnpm test      # vitest
+pnpm build
+pnpm test
 ```
 
 ## 开源协议与第三方内容
