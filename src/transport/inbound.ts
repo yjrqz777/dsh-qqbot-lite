@@ -128,7 +128,7 @@ export async function handleInbound(
     }
 
     if (groupImageBlocks.length > 0) {
-      agentBody = agentBody.replace(/^(\s*)- Image: .*$/gm, '$1- Image attached as visual input');
+      agentBody = agentBody.replace(/^([ \t]*)- Image: .*$/gm, '$1- Image attached as visual input');
     }
   }
 
