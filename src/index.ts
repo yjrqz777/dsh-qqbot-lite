@@ -4,8 +4,8 @@
  * Cordis 插件入口。将 QQ 消息平台作为 dsh 的前端协议驱动。
  * 网关组装（中间件编排 + 事件 + 出站 + 生命周期）见 src/gateway/。
  *
- * 配置是 volatile 字段（见 src/config.ts）：设置页的改动不会重挂本插件，
- * 只发 `loader/volatile-update`，网关在这里按需销毁重建。
+ * 运行时全量配置保存在 profile 目录的独立 JSON 文件中；Cordis 配置作为首次
+ * 初始化和旧版兼容的默认值。收到 `loader/volatile-update` 时重新读取 JSON 并按需重启网关。
  *
  * ── 启动隔离（硬约束）──
  * 本插件无论怎么坏，都不允许影响 harness 启动：
