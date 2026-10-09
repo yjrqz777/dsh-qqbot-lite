@@ -15,11 +15,13 @@ QQ 用户 -> QQ WebSocket -> dsh-qqbot -> ctx.agents -> dsh agent loop -> LLM
 
 ## 界面截图
 
-### QQ Bot 配置与凭据
-![QQ Bot 设置页](./docs/assets/qqbot-settings.png)
-
-### 苏晴人格预设
-![人格配置页中的苏晴预设](./docs/assets/persona-suqing.png)
+<table>
+<tr><th>QQ Bot 配置与凭据</th><th>苏晴人格预设</th></tr>
+<tr>
+<td><img src="./docs/assets/qqbot-settings.png" alt="QQ Bot 设置页" width="380"></td>
+<td><img src="./docs/assets/persona-suqing.png" alt="人格配置页中的苏晴预设" width="380"></td>
+</tr>
+</table>
 
 ## 安装
 

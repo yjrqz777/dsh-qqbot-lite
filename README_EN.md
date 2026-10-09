@@ -28,11 +28,13 @@ Scan to join the QQ group / channel
 
 ## Screenshots
 
-### QQ Bot settings and credentials
-![QQ Bot settings page](./docs/assets/qqbot-settings.png)
-
-### Suqing persona preset
-![Suqing persona settings](./docs/assets/persona-suqing.png)
+<table>
+<tr><th>QQ Bot settings and credentials</th><th>Suqing persona preset</th></tr>
+<tr>
+<td><img src="./docs/assets/qqbot-settings.png" alt="QQ Bot settings page" width="380"></td>
+<td><img src="./docs/assets/persona-suqing.png" alt="Suqing persona settings" width="380"></td>
+</tr>
+</table>
 
 ## Architecture
 
