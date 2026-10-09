@@ -134,9 +134,12 @@ export async function handleInbound(
   // 私聊和群聊都附上 dsh 图像块，让会话模型直接获得图片内容。
   const imageBlocks: ContentBlock[] = [];
   if (config.vision.enabled && attachImage) {
-    const imagePaths = (mwState.downloadedFiles ?? [])
-      .filter((file) => file.contentType === 'image')
-      .map((file) => file.localPath);
+    const downloadedByFilename = new Map((mwState.downloadedFiles ?? []).map((file) => [file.filename, file]));
+    const imagePaths = (msg.attachments ?? [])
+      .filter((attachment) => classifyContentType(attachment.content_type) === 'image')
+      .map((attachment) => downloadedByFilename.get(attachment.filename)?.localPath
+        ?? (config.media.enabled ? attachment.url : undefined))
+      .filter((image): image is string => typeof image === 'string' && image.length > 0);
 
     for (const imagePath of imagePaths) {
       try {
