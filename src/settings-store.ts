@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { getProfileDir } from './shared/utils.ts';
-import { DEFAULT_PERSONA_PRESETS, type ImQQBotConfig } from './config.ts';
+import { DEFAULT_PERSONA_PRESETS, TUDOU_PERSONA_PRESET, type ImQQBotConfig } from './config.ts';
 
 const FILE_NAME = 'dsh-qqbot-settings.json';
 let cachedPath: string | undefined;
@@ -38,6 +38,13 @@ function normalize(value: unknown, defaults: ImQQBotConfig): ImQQBotConfig {
   if (result.personaPrompt !== undefined && typeof result.personaPrompt !== 'string') {
     throw new Error('人格提示词必须是文本');
   }
+  if (typeof result.personaPrompt !== 'string' || result.personaPrompt.length === 0) {
+    result.personaPrompt = TUDOU_PERSONA_PRESET.prompt;
+  }
+  const overrides = result.personaOverrides && typeof result.personaOverrides === 'object' && !Array.isArray(result.personaOverrides)
+    ? result.personaOverrides as Record<string, unknown>
+    : {};
+  result.personaOverrides = Object.fromEntries(Object.entries(overrides).filter((entry): entry is [string, string] => typeof entry[1] === 'string'));
   const presets = Array.isArray(result.personaPresets)
     ? result.personaPresets.filter((item) => item !== null && typeof item === 'object'
       && typeof item.name === 'string' && typeof item.prompt === 'string')
