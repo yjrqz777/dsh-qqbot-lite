@@ -8,6 +8,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-17
+
+### Added
+
+- **QR binding in the settings page**: click "Scan to bind" under Settings → QQ Bot → Credentials & session to get a QR code, then scan it with mobile QQ to finish binding the bot. AppID / AppSecret are filled in and saved automatically, and the bot reconnects right away. Expired QR codes refresh themselves; closing the dialog cancels the attempt.
+
+### Changed
+
+- "Get credentials" is now a button shown next to "Scan to bind" with the same styling, and neither button carries an icon. Adds the `qrcode` dependency to render QR images on the host side.
+- The version shown in the About section is read from the installed plugin instead of being hardcoded.
+- When the vision model does not declare image input, the plugin only warns in the settings status area and no longer rewrites `~/.dsh/settings.yaml` (which used to drop hand-written comments and field order).
+- The model configuration cache is invalidated when `~/.dsh/settings.yaml` changes, so edits take effect without a restart.
+
+### Fixed
+
+- Fixed the About section displaying a version that did not match the actual plugin version.
+
 ## [1.1.0] - 2026-10-09
 
 ### Added
