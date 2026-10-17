@@ -7,6 +7,7 @@
  *
  * 这里的方法不允许抛出：状态本身出问题绝不能影响插件启动。
  */
+import { PLUGIN_VERSION } from './shared/utils.ts';
 
 /** 连接状态取值。 */
 export type QqbotConnectionState =
@@ -36,12 +37,14 @@ export interface QqbotStatusSnapshot {
    * 与 `error` 分开：连接正常时状态点仍是绿的，页面上单独显示这条。
    */
   lastError: string | null;
+  /** 插件版本号（取自 package.json），设置页「关于」显示用。 */
+  version: string;
 }
 
 /** 进程内状态持有者。 */
 export class QqbotStatus {
   private value: QqbotStatusSnapshot = {
-    state: 'unconfigured', appId: '', since: Date.now(), error: null, lastError: null,
+    state: 'unconfigured', appId: '', since: Date.now(), error: null, lastError: null, version: PLUGIN_VERSION,
   };
 
   /** 读当前快照。 @returns 状态快照副本。 */

@@ -22,7 +22,10 @@ interface LazyModule {
 }
 
 /** Web 外壳在装载任何 bundle 之前注入的注册队列。 */
-declare const window: { __ModuleLoader__: { load(module: LazyModule): void } };
+declare const window: {
+  __ModuleLoader__: { load(module: LazyModule): void };
+  open(url: string, target?: string, features?: string): unknown;
+};
 
 declare const console: { log(...args: unknown[]): void; error(...args: unknown[]): void };
 
@@ -69,6 +72,10 @@ const STATUS_ROUTE = '/api/dsh-qqbot/status';
 const CONNECT_ROUTE = '/api/dsh-qqbot/connect';
 const DISCONNECT_ROUTE = '/api/dsh-qqbot/disconnect';
 const SETTINGS_ROUTE = '/api/dsh-qqbot/settings';
+/** 扫码绑定：起会话 / 轮询结果 / 取消（与 src/index.ts 的常量对应）。 */
+const BIND_START_ROUTE = '/api/dsh-qqbot/bind/start';
+const BIND_POLL_ROUTE = '/api/dsh-qqbot/bind/poll';
+const BIND_CANCEL_ROUTE = '/api/dsh-qqbot/bind/cancel';
 
 /** 状态轮询间隔(ms)。 */
 const STATUS_POLL_MS = 5000;
@@ -115,8 +122,6 @@ const CSS = css`
 .dqb-about p { margin: 0; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 20px; }
 .dqb-about a { color: var(--dsw-alias-state-business-primary); text-decoration: none; }
 .dqb-about a:hover { text-decoration: underline; }
-.dqb-credential-link { align-self: flex-start; margin: 0 0 4px; font-weight: 400; color: var(--dsw-alias-state-business-primary); text-decoration: none; }
-.dqb-credential-link:hover { text-decoration: underline; }
 .dqb-field { display: flex; flex-direction: column; gap: 4px; }
 .dqb-row { display: flex; align-items: center; gap: 12px; min-height: 28px; }
 .dqb-label { flex: 0 0 168px; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
@@ -138,6 +143,17 @@ const CSS = css`
 .dqb-persona-peer-select { max-width: 240px; }
 .dqb-check { flex: 0 0 auto; width: 16px; height: 16px; }
 .dqb-hint { margin: 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
+.dqb-bind-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 4px; }
+.dqb-modal-mask { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.55); }
+.dqb-modal { display: flex; flex-direction: column; gap: 10px; width: min(420px, 92vw); max-height: 88vh; padding: 16px; overflow-y: auto; background: var(--dsw-alias-bg-base, #fff); border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28); }
+.dqb-modal-title { margin: 0; font-size: 15px; font-weight: 600; color: var(--dsw-alias-label-primary); }
+.dqb-modal-text { margin: 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
+.dqb-modal-qr { display: block; width: 220px; height: 220px; margin: 4px auto; padding: 8px; background: #fff; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; }
+.dqb-modal-qr-empty { display: flex; align-items: center; justify-content: center; min-height: 180px; font-size: 12px; color: var(--dsw-alias-label-tertiary); }
+.dqb-modal-url { display: block; max-height: 64px; overflow-y: auto; font-size: 11px; line-height: 16px; word-break: break-all; color: var(--dsw-alias-state-business-primary); text-decoration: underline; }
+.dqb-modal-url:hover { opacity: 0.8; }
+.dqb-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.dqb-modal-ok { color: var(--dsw-alias-state-business-primary); }
 `;
 
 /** 一个可编辑字段：path 与 Config schema 中的固定路径一一对应。 */
@@ -382,6 +398,9 @@ window.__ModuleLoader__.load({
       const [presetName, setPresetName] = React.useState('');
       const [connectionBusy, setConnectionBusy] = React.useState(false);
       const [selectedGroup, setSelectedGroup] = React.useState(GROUPS[0]?.title ?? '');
+      /** 扫码绑定弹窗：idle 关闭 / loading 起会话中 / waiting 等扫码 / done 成功 / error 失败。 */
+      const [bind, setBind] = React.useState({ status: 'idle', id: '', url: '', qr: '', error: '' } as
+        { status: string; id: string; url: string; qr: string; error: string });
 
       React.useEffect(() => {
         let alive = true;
@@ -419,6 +438,72 @@ window.__ModuleLoader__.load({
         const timer = setInterval(() => { void tick(); }, STATUS_POLL_MS);
         return () => { alive = false; clearInterval(timer); };
       }, []);
+
+      // 扫码绑定轮询：等用户手机扫码。
+      // 成功后宿主端已经把凭据写盘并重启网关，这里只需刷新页面数据。
+      React.useEffect(() => {
+        if (bind.status !== 'waiting' || bind.id === '') return;
+        let alive = true;
+        const tick = async (): Promise<void> => {
+          try {
+            const response = await fetch(`${BIND_POLL_ROUTE}?id=${encodeURIComponent(bind.id)}`, { headers: { accept: 'application/json' } });
+            const body = await response.json();
+            if (!alive || body === null || typeof body !== 'object') return;
+            if (body.status === 'done') {
+              setBind((current: any) => ({ ...current, status: 'done' }));
+              if (body.settings !== undefined) {
+                setSnapshot({ status: 'ready', value: body.settings, writable: true, mode: 'profile-file', revision: 0, error: null });
+                setDrafts({});
+              }
+              setLink({ state: 'starting', appId: String(body.appId ?? '') });
+              setSaveState({ status: 'saved', message: '扫码绑定成功，凭据已保存' });
+              return;
+            }
+            if (body.status === 'error') {
+              setBind((current: any) => ({ ...current, status: 'error', error: String(body.error ?? '绑定失败') }));
+              return;
+            }
+            const qr = String(body.qr ?? '');
+            const url = String(body.url ?? '');
+            setBind((current: any) => (current.qr === qr && current.url === url ? current : { ...current, qr, url }));
+          } catch {
+            // 网络抖动：下一轮再试
+          }
+        };
+        const timer = setInterval(() => { void tick(); }, 1500);
+        return () => { alive = false; clearInterval(timer); };
+      }, [bind.status, bind.id]);
+
+      /** 起一次扫码绑定：拿到二维码后弹窗显示。 */
+      const onStartBind = async (): Promise<void> => {
+        setBind({ status: 'loading', id: '', url: '', qr: '', error: '' });
+        try {
+          const response = await fetch(BIND_START_ROUTE, { method: 'POST', headers: { accept: 'application/json' } });
+          const body = await response.json();
+          if (!response.ok || (body !== null && typeof body === 'object' && body.error)) {
+            throw new Error(String(body?.error ?? '获取二维码失败'));
+          }
+          setBind({ status: 'waiting', id: String(body.id ?? ''), url: String(body.url ?? ''), qr: String(body.qr ?? ''), error: '' });
+        } catch (error: unknown) {
+          setBind({ status: 'error', id: '', url: '', qr: '', error: error instanceof Error ? error.message : String(error) });
+        }
+      };
+
+      /** 关闭弹窗；还在等扫码时通知宿主停掉会话。 */
+      const onCancelBind = async (): Promise<void> => {
+        const id = bind.id;
+        setBind({ status: 'idle', id: '', url: '', qr: '', error: '' });
+        if (id === '') return;
+        try {
+          await fetch(BIND_CANCEL_ROUTE, {
+            method: 'POST',
+            headers: { accept: 'application/json', 'content-type': 'application/json' },
+            body: JSON.stringify({ id }),
+          });
+        } catch {
+          // 取消失败只是宿主那边多留一个会话，10 分钟自动回收
+        }
+      };
 
       const setDraft = (key: string, value: unknown): void => {
         setDrafts((current: Record<string, any>) => ({ ...current, [key]: value }));
@@ -595,17 +680,24 @@ window.__ModuleLoader__.load({
         ? null
         : h('section', { className: 'dqb-group', key: activeGroup.title },
           activeGroup.title === '凭据与会话'
-            ? h('a', {
-              className: 'dqb-credential-link',
-              href: 'https://q.qq.com/qqbot/openclaw/login.html',
-              target: '_blank',
-              rel: 'noopener noreferrer',
-            }, '获取凭据')
+            ? h('div', { className: 'dqb-bind-row' },
+              h('button', {
+                className: 'dqb-button dqb-button-primary',
+                type: 'button',
+                disabled: bind.status === 'loading',
+                onClick: () => { void onStartBind(); },
+              }, bind.status === 'loading' ? '获取二维码…' : '扫码绑定'),
+              h('button', {
+                className: 'dqb-button dqb-button-primary',
+                type: 'button',
+                onClick: () => { window.open('https://q.qq.com/qqbot/openclaw/login.html', '_blank', 'noopener,noreferrer'); },
+              }, '获取凭据'))
             : null,
           activeGroup.about
             ? h('div', { className: 'dqb-about' },
               h('p', null, h('strong', null, '插件：'), 'dsh-qqbot-lite'),
-              h('p', null, h('strong', null, '版本：'), '1.0.0'),
+              // 版本号由宿主半从 package.json 读出（状态路由的 version 字段），页面不再写死
+              h('p', null, h('strong', null, '版本：'), typeof link.version === 'string' && link.version !== '' ? link.version : '未知'),
               h('p', null, h('strong', null, '作者：'), h('a', { href: 'https://github.com/yjrqz777', target: '_blank', rel: 'noopener noreferrer' }, 'YJRQZ777')),
               h('p', null, '本项目基于腾讯 dsh-qqbot v0.5.0 二次开发。'),
               h('p', null, h('strong', null, '开源协议：'), 'MIT'),
@@ -629,6 +721,40 @@ window.__ModuleLoader__.load({
         ? h('p', { className: 'dqb-notice dqb-error' }, `最近一次功能错误：${link.lastError}`)
         : null;
 
+      // 扫码绑定弹窗：二维码由宿主端生成（客户端不能引 npm 包），这里只显示。
+      const bindModal = bind.status === 'idle' ? null : h('div', { className: 'dqb-modal-mask' },
+        h('div', { className: 'dqb-modal' },
+          h('h3', { className: 'dqb-modal-title' },
+            bind.status === 'error' ? '扫码绑定失败' : (bind.status === 'done' ? '绑定成功' : '扫码绑定 QQ 机器人')),
+          bind.status === 'error'
+            ? h('p', { className: 'dqb-modal-text dqb-error' }, bind.error)
+            : bind.status === 'done'
+              ? h('p', { className: 'dqb-modal-text dqb-modal-ok' }, '已拿到 AppID / AppSecret 并写入配置，机器人正在重新连接。')
+              : h('div', null,
+                bind.qr === ''
+                  ? h('div', { className: 'dqb-modal-qr-empty' }, '正在获取二维码…')
+                  : h('img', { className: 'dqb-modal-qr', src: bind.qr, alt: '登录二维码' }),
+                h('p', { className: 'dqb-modal-text' }, '用手机 QQ 扫码，按页面提示完成机器人绑定。二维码过期会自动换成新的。'),
+                bind.url === '' ? null : h('a', {
+                  className: 'dqb-modal-url',
+                  href: bind.url,
+                  target: '_blank',
+                  rel: 'noopener noreferrer',
+                }, bind.url)),
+          h('div', { className: 'dqb-modal-actions' },
+            h('button', {
+              className: 'dqb-button',
+              type: 'button',
+              onClick: () => { void onCancelBind(); },
+            }, bind.status === 'waiting' || bind.status === 'loading' ? '取消' : '关闭'),
+            bind.status === 'error'
+              ? h('button', {
+                className: 'dqb-button dqb-button-primary',
+                type: 'button',
+                onClick: () => { void onStartBind(); },
+              }, '重试')
+              : null)));
+
       return h('div', { className: 'dqb-page' },
         h('style', null, CSS),
         h('div', { className: 'dqb-sticky-header' },
@@ -637,7 +763,8 @@ window.__ModuleLoader__.load({
         h('p', { className: 'dqb-meta' }, '全部 QQ Bot 配置保存在 profile 目录下的 dsh-qqbot-settings.json。'),
         runtimeError,
         notice,
-        body);
+        body,
+        bindModal);
     }
 
     /**

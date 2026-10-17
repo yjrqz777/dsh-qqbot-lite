@@ -93,6 +93,157 @@ export async function runQrSetup(source = 'dsh-qqbot'): Promise<SetupCredentials
   }
 }
 
+// ───────────────────────── 网页扫码绑定（设置页弹窗里显示二维码） ─────────────────────────
+
+/** 一次绑定会话的对外信息。 */
+export interface BindSessionInfo {
+  id: string;
+  /** 授权页链接（二维码内容就是这个链接） */
+  url: string;
+  /** 二维码图片，data URL（SVG） */
+  qr: string;
+}
+
+/** 一次轮询的结果。 */
+export type BindPollResult =
+  | { status: 'pending'; url: string; qr: string }
+  | { status: 'done'; appId: string; appSecret: string }
+  | { status: 'error'; error: string };
+
+/** qrcode 只用到 toString，写最小接口即可，不必引入 @types/qrcode 依赖。 */
+interface QrEncoder {
+  toString(text: string, options?: Record<string, unknown>): Promise<string>;
+}
+
+interface BindSession {
+  id: string;
+  url: string;
+  qr: string;
+  creds: SetupCredentials | null;
+  error: string | null;
+  stop: () => void;
+  /** 最近一次二维码更新时间，用来回收没人管的僵尸会话 */
+  at: number;
+}
+
+/** 进行中的绑定会话（可能同时有几个，按 id 取）。 */
+const bindSessions = new Map<string, BindSession>();
+
+/** 会话最长存活时间：二维码过期会自动刷新，超过这个时间没人管就回收。 */
+const BIND_TTL_MS = 10 * 60 * 1000;
+
+const sleep = (ms: number): Promise<void> => new Promise((done) => { setTimeout(done, ms); });
+
+/**
+ * 把授权页链接编成二维码图片（data URL / SVG）。
+ *
+ * `qrcode` 用**非字面量**动态 import：一是本插件「缺包只让单个功能降级」的约定，
+ * 二是非字面量说明符在 TypeScript 里类型为 any，不必为一个函数引入 @types/qrcode。
+ */
+async function qrDataUrl(text: string): Promise<string> {
+  const mod = (await import('qrcode' as string)) as { default?: QrEncoder } & QrEncoder;
+  const encoder = mod.default ?? mod;
+  if (typeof encoder?.toString !== 'function') throw new Error('qrcode 模块不可用');
+  const svg = await encoder.toString(text, { type: 'svg', margin: 1, width: 260 });
+  return `data:image/svg+xml;base64,${Buffer.from(String(svg), 'utf8').toString('base64')}`;
+}
+
+/** 停止并移除一个会话（连带停掉底层轮询）。 */
+function closeBindSession(id: string): void {
+  const session = bindSessions.get(id);
+  if (session === undefined) return;
+  bindSessions.delete(id);
+  try { session.stop(); } catch { /* 停不掉不影响结果 */ }
+}
+
+/** 清掉超时未使用的会话。 */
+function sweepBindSessions(): void {
+  const now = Date.now();
+  for (const [id, session] of Array.from(bindSessions.entries())) {
+    if (now - session.at > BIND_TTL_MS) closeBindSession(id);
+  }
+}
+
+/**
+ * 开始一次网页扫码绑定：起 QQ 官方扫码流程，等第一张二维码生成后返回。
+ *
+ * 与 `runQrSetup` 的区别：不在终端打印二维码（`displayQrCodeToConsole:false`），
+ * 而是把授权页链接编成图片交给设置页弹窗显示。
+ *
+ * @param source 来源标识，会拼进授权页链接
+ */
+export async function startBindSession(source = 'dsh-qqbot-lite'): Promise<BindSessionInfo> {
+  sweepBindSessions();
+
+  const id = `bind-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const session: BindSession = { id, url: '', qr: '', creds: null, error: null, stop: () => {}, at: Date.now() };
+  bindSessions.set(id, session);
+
+  try {
+    session.stop = startQrConnect({
+      onSuccess: (credentials) => {
+        const first = (Array.isArray(credentials) ? credentials : [credentials])[0];
+        if (!first) { session.error = '扫码未返回凭据'; return; }
+        session.creds = { appId: String(first.appId ?? ''), appSecret: String(first.appSecret ?? '') };
+      },
+      onFailure: (error) => { session.error = error instanceof Error ? error.message : String(error); },
+      // 二维码过期会自动刷新，这里每次都用最新链接重画一张
+      onQrDisplayed: (url) => {
+        void qrDataUrl(url)
+          .then((qr) => { session.url = url; session.qr = qr; session.error = null; session.at = Date.now(); })
+          .catch((error: unknown) => {
+            session.error = `二维码生成失败: ${error instanceof Error ? error.message : String(error)}`;
+          });
+      },
+      onQrExpired: () => { /* 新链接会再次触发 onQrDisplayed，前端轮询自然拿到新图 */ },
+    }, { displayQrCodeToConsole: false, source });
+  } catch (error) {
+    closeBindSession(id);
+    throw error;
+  }
+
+  // 等第一张二维码：官方 12 秒内必出，超时按失败处理
+  const deadline = Date.now() + 12000;
+  while (Date.now() < deadline && session.qr === '' && session.error === null) {
+    await sleep(200);
+  }
+  if (session.qr === '') {
+    const message = session.error ?? '获取绑定二维码超时';
+    closeBindSession(id);
+    throw new Error(message);
+  }
+  return { id, url: session.url, qr: session.qr };
+}
+
+/**
+ * 轮询一次绑定结果。
+ * @returns null 表示会话不存在（已结束或服务重启）
+ */
+export function pollBindSession(id: string): BindPollResult | null {
+  const session = bindSessions.get(id);
+  if (session === undefined) return null;
+  if (session.creds !== null) {
+    const { appId, appSecret } = session.creds;
+    closeBindSession(id);
+    return { status: 'done', appId, appSecret };
+  }
+  if (session.error !== null) {
+    const error = session.error;
+    closeBindSession(id);
+    return { status: 'error', error };
+  }
+  if (Date.now() - session.at > BIND_TTL_MS) {
+    closeBindSession(id);
+    return { status: 'error', error: '绑定超时，请重新获取二维码' };
+  }
+  return { status: 'pending', url: session.url, qr: session.qr };
+}
+
+/** 用户取消：停掉轮询并丢弃会话。 */
+export function cancelBindSession(id: string): void {
+  closeBindSession(id);
+}
+
 /**
  * 将凭据写入 dsh profile 的 cordis.patch.yml
  *

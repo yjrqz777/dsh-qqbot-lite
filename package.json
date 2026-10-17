@@ -1,6 +1,6 @@
 {
   "name": "@yjrqz777/dsh-qqbot-lite",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "QQ Bot IM channel plugin for deepseek-harness (dsh)",
   "type": "module",
   "main": "./dist/index.js",
@@ -33,6 +33,14 @@
   "engines": {
     "node": ">=18"
   },
+  "files": [
+    "dist",
+    "cordis.patch.yml",
+    "README.md",
+    "README_EN.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/yjrqz777/dsh-qqbot-lite.git"
@@ -47,12 +55,17 @@
     },
     "client": {
       "platform": "web"
-    }
+    },
+    "engines": {
+      "dsh": ">=0.2.1-rc.2"
+    },
+    "manifestVersion": 1
   },
   "dependencies": {
     "@tencent-connect/qqbot-connector": "1.2.0",
     "@tencent-connect/qqbot-nodejs": "^1.0.4",
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "qrcode": "^1.5.4"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": ">=4.0.5-alpha.1",

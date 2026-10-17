@@ -35,6 +35,14 @@ export type { ImQQBotConfig, ImQQBotFormConfig } from './config.ts';
 const STATUS_PATH = '/api/dsh-qqbot/status';
 const SETTINGS_PATH = '/api/dsh-qqbot/settings';
 
+/** 设置页「扫码绑定」用的三条路由：起会话 / 轮询结果 / 取消。 */
+const BIND_START_PATH = '/api/dsh-qqbot/bind/start';
+const BIND_POLL_PATH = '/api/dsh-qqbot/bind/poll';
+const BIND_CANCEL_PATH = '/api/dsh-qqbot/bind/cancel';
+
+/** 定时 JSON 响应头：绑定状态每次都要新读，禁用缓存。 */
+const NO_STORE = { 'cache-control': 'no-store' } as const;
+
 /** 取错误文本（unknown → string）。 */
 function reason(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -127,6 +135,62 @@ async function bootstrap(ctx: Context, config: ImQQBotFormConfig, logger: Logger
           },
         }),
         'im-qqbot: settings route',
+      );
+
+      // ── 扫码绑定（设置页弹窗显示二维码）──
+      // 起会话 → 前端拿二维码图片显示 → 轮询；成功时凭据走 requestSettingsSave，
+      // 与设置页「保存」同一条链路，会自动重启网关。动态导入，缺包只影响这一条链路。
+      connectionCtx.effect(
+        () => connection.fetch.register({
+          path: BIND_START_PATH, methods: ['POST'], requestBody: 'buffered',
+          fetch: async () => {
+            try {
+              const { startBindSession } = await import('./setup.ts');
+              return Response.json(await startBindSession(), { headers: NO_STORE });
+            } catch (error) {
+              return Response.json({ error: reason(error) }, { status: 500, headers: NO_STORE });
+            }
+          },
+        }),
+        'im-qqbot: bind start route',
+      );
+      connectionCtx.effect(
+        () => connection.fetch.register({
+          path: BIND_POLL_PATH, methods: ['GET'], requestBody: 'buffered',
+          fetch: async (request: Request) => {
+            try {
+              const id = new URL(request.url).searchParams.get('id') ?? '';
+              const { pollBindSession } = await import('./setup.ts');
+              const state = pollBindSession(id);
+              if (state === null) {
+                return Response.json({ status: 'error', error: '绑定会话不存在或已结束' }, { status: 404, headers: NO_STORE });
+              }
+              if (state.status !== 'done') return Response.json(state, { headers: NO_STORE });
+              // 扫码完成：凭据直接写入插件自己的配置文件，返回新的完整配置供页面刷新
+              const saved = await requestSettingsSave({ ...activeSettings, appId: state.appId, appSecret: state.appSecret });
+              return Response.json({ status: 'done', appId: saved.appId, settings: saved }, { headers: NO_STORE });
+            } catch (error) {
+              return Response.json({ status: 'error', error: reason(error) }, { status: 400, headers: NO_STORE });
+            }
+          },
+        }),
+        'im-qqbot: bind poll route',
+      );
+      connectionCtx.effect(
+        () => connection.fetch.register({
+          path: BIND_CANCEL_PATH, methods: ['POST'], requestBody: 'buffered',
+          fetch: async (request: Request) => {
+            try {
+              const body = (await request.json().catch(() => ({}))) as { id?: unknown };
+              const { cancelBindSession } = await import('./setup.ts');
+              cancelBindSession(String(body?.id ?? ''));
+              return Response.json({ ok: true }, { headers: NO_STORE });
+            } catch (error) {
+              return Response.json({ error: reason(error) }, { status: 400, headers: NO_STORE });
+            }
+          },
+        }),
+        'im-qqbot: bind cancel route',
       );
     });
   } catch (error) {

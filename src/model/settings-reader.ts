@@ -4,7 +4,7 @@
  * 从 ~/.dsh/settings.yaml 中读取模型配置信息。
  * 只读，不修改 settings.yaml。
  */
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { homedir } from 'node:os';
 import yaml from 'js-yaml';
@@ -24,6 +24,8 @@ interface LlmPiAiSettings {
 export class SettingsReader {
   /** settings.yaml 缓存 */
   private settingsCache: Record<string, unknown> | null | undefined;
+  /** 缓存对应的文件签名（mtimeMs + size）；签名一变就重读，宿主改了配置也能跟上。 */
+  private settingsStamp: string | undefined;
 
   /**
    * 从 settings.yaml 的 agent-default-model 字段读取默认模型路由
@@ -77,14 +79,27 @@ export class SettingsReader {
   }
 
   private loadSettings(): Record<string, unknown> | null {
-    if (this.settingsCache !== undefined) return this.settingsCache;
+    const settingsPath = resolve(homedir(), '.dsh', 'settings.yaml');
+
+    // 用 mtimeMs + size 当缓存键：宿主改过 settings.yaml 就自动重读，
+    // 不再让一份首次读入的值在进程里永久生效。
+    let stamp: string | undefined;
+    try {
+      const info = statSync(settingsPath);
+      stamp = `${info.mtimeMs}:${info.size}`;
+    } catch {
+      stamp = undefined; // 文件不存在或读不到，按「无配置」处理
+    }
+
+    if (this.settingsCache !== undefined && stamp === this.settingsStamp) return this.settingsCache;
+
+    this.settingsStamp = stamp;
+    if (stamp === undefined) {
+      this.settingsCache = null;
+      return null;
+    }
 
     try {
-      const settingsPath = resolve(homedir(), '.dsh', 'settings.yaml');
-      if (!existsSync(settingsPath)) {
-        this.settingsCache = null;
-        return null;
-      }
       const content = readFileSync(settingsPath, 'utf8');
       this.settingsCache = yaml.load(content) as Record<string, unknown> | null;
       return this.settingsCache;

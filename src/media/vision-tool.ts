@@ -8,7 +8,7 @@
  *
  * 手写 ToolDefinition（标准 JSON Schema），避免引入 dsh-tools 的 8 个 peer 依赖。
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
@@ -201,10 +201,17 @@ function resolveDshHome(): string {
  * 启动时检查 settings.yaml 里 vision 模型的 input 模态是否声明了 image。
  *
  * 模型配置界面不暴露 `input` 字段，用户通过界面配置的视觉模型默认是纯文本，
- * 会导致 pi-ai adapter 拒绝图片输入。这里在启动时兜底：未声明 image 时自动补 `[text, image]`。
- * 幂等（已声明则跳过），解析/写入失败仅 warn 不阻断启动。
+ * 会导致 pi-ai adapter 拒绝图片输入。这里只**检查并提示**，不修改宿主的全局配置：
+ * 旧实现会 yaml.load → 改 model.input → yaml.dump 整体重写 ~/.dsh/settings.yaml，
+ * 用户手写的注释、空行、字段顺序全被抹掉，属于插件越界改宿主配置文件。
+ *
+ * @param onError 可选的设置页提示回调（把这条提示显示在状态区）
  */
-export function ensureVisionInputModal(vision: VisionConfig, logger: Logger): void {
+export function checkVisionInputModal(
+  vision: VisionConfig,
+  logger: Logger,
+  onError?: (message: string) => void,
+): void {
   if (!vision.enabled || !vision.provider || !vision.model) return;
 
   const settingsPath = resolve(resolveDshHome(), 'settings.yaml');
@@ -236,11 +243,12 @@ export function ensureVisionInputModal(vision: VisionConfig, logger: Logger): vo
     }
 
     const input = model.input;
-    if (Array.isArray(input) && input.includes('image')) return; // 已声明，幂等跳过
+    if (Array.isArray(input) && input.includes('image')) return; // 已声明，无需提示
 
-    model.input = ['text', 'image'];
-    writeFileSync(settingsPath, yaml.dump(doc), 'utf8');
-    logger.info(`im-qqbot: 已为 vision 模型补充 input: [text, image] (${vision.provider}/${vision.model})`);
+    const hint = `视觉模型 ${vision.provider}/${vision.model} 未声明图片输入（input 缺 image），qqbot_describe_image 会被 adapter 拒绝。`
+      + `请在 dsh 设置里给该模型勾选图片输入（${settingsPath} 中 llm-pi-ai.providers.${vision.provider}.models[].input 需要 ["text","image"]）。`;
+    logger.warn(`im-qqbot: ${hint}`);
+    onError?.(hint);
   } catch (err) {
     logger.warn(`im-qqbot: 检查 settings.yaml vision input 失败: ${err instanceof Error ? err.message : String(err)}`);
   }

@@ -22,7 +22,7 @@ import type { ImQQBotConfig } from '../config.ts';
 import type { ChatScope, Logger } from '../types.ts';
 import { setupMiddlewares } from './middleware-setup.ts';
 import { startMediaCleanup } from '../media/media-cleaner.ts';
-import { createImageBlockFromPath, ensureVisionInputModal, registerDescribeImageTool } from '../media/vision-tool.ts';
+import { createImageBlockFromPath, checkVisionInputModal, registerDescribeImageTool } from '../media/vision-tool.ts';
 import { registerSendFileTool, type MediaSenderLike } from '../media/send-file-tool.ts';
 
 /**
@@ -170,7 +170,8 @@ export async function bootstrapGateway(
   }
 
   // ── 视觉工具注册（qqbot_describe_image，复用 dsh llm + attachments） ──
-  ensureVisionInputModal(config.vision, logger);
+  // 只检查不修改宿主的 settings.yaml；缺 image 模态时提示到设置页状态区。
+  checkVisionInputModal(config.vision, logger, onError);
   registerDescribeImageTool(ctx, config.vision, logger);
 
   // ── 附件发送工具注册（qqbot_send_file） ──

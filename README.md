@@ -31,7 +31,7 @@ QQ 用户 -> QQ WebSocket -> dsh-qqbot -> ctx.agents -> dsh agent loop -> LLM
 
 ### 准备环境
 
-安装 Git、Node.js 18 或更高版本、pnpm，以及 dsh Desktop。
+安装 Git、Node.js 18 或更高版本、pnpm，以及 dsh Desktop。插件要求 dsh `>= 0.2.1-rc.2`。
 
 ### 1. 克隆项目
 
@@ -71,7 +71,10 @@ pnpm build
 
 ### 5. 设置 QQ Bot 凭据
 
-安装后进入 **设置 → QQ Bot**，填写 AppID 和 AppSecret，点击保存并连接。也可以点击“获取凭据”前往 QQ 机器人官网。
+安装后进入 **设置 → QQ Bot → 凭据与会话**，有两种方式：
+
+- **扫码绑定**：点「扫码绑定」，弹窗里会显示二维码；用手机 QQ 扫码，按页面提示完成机器人绑定。拿到 AppID / AppSecret 后会自动填好并保存，机器人随即重连。二维码过期会自动换成新的，关掉弹窗即取消本次绑定。
+- **手动填写**：点「获取凭据」到 QQ 机器人官网，把 AppID 和 AppSecret 抄回来填进设置页，保存并连接。
 
 Desktop 模式下无需设置 `QQBOT_APPID` 和 `QQBOT_SECRET` 环境变量；未填写凭据时，Desktop 和 dsh 本体仍可启动，只是 QQ Bot 保持未连接。
 
@@ -125,6 +128,8 @@ Desktop 模式下无需设置 `QQBOT_APPID` 和 `QQBOT_SECRET` 环境变量；�
 
 开启 `media.enabled` 和 `vision.enabled` 后，QQ 私聊与群聊中的图片会直接作为图像内容发送给 DSH 会话，不再只提供本地文件路径。插件优先使用已下载的本地图片；本地文件不可用时，会尝试通过 QQ 附件 URL 获取图片，因此网络异常可能导致图片暂时无法显示或识别。会话使用的模型需要支持图片输入。`vision.provider` 和 `vision.model` 是 `qqbot_describe_image` 工具所用的视觉模型配置。
 
+插件启动时会检查所配视觉模型是否声明了 `image` 输入：没声明只在设置页状态区提示，**不会改写** `~/.dsh/settings.yaml`，请自行在 dsh 设置里给该模型勾选图片输入。
+
 ### sendFile（附件发送）
 
 | 配置 | 类型 | 默认值 | 说明 |
@@ -169,7 +174,7 @@ QQ 会话支持通过可点击按钮收集单选答案，也可以回复编号�
 src/
 ├── index.ts                    # Cordis 插件入口（async apply）
 ├── config.ts                   # 配置 Schema
-├── setup.ts                    # 凭据绑定（扫码）
+├── setup.ts                    # 凭据绑定（终端扫码 / 设置页弹窗扫码）
 ├── gateway/                    # 网关装配（bootstrap / middleware-setup）
 ├── transport/                  # 传输层：inbound / outbound / 流式 / 切分 / 限流 / 工具展示
 ├── session/                    # 会话层：session-manager / idle-evictor
